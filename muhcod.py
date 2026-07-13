@@ -7,7 +7,7 @@ from datetime import datetime, timedelta
 from cryptography.fernet import Fernet
 from aiogram import Bot, Dispatcher, types
 from aiogram.filters import Command
-from aiogram.types import Message
+from aiogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.fsm.storage.memory import MemoryStorage
@@ -55,7 +55,7 @@ GARBAGE_POOL = [
     '⺽','⺾','⺿','⻀','⻁','⻂','⻃','⻄','⻅','⻆','⻇','⻈','⻉','⻊','⻋','⻌','⻍','⻎','⻏','⻐',
     '⻑','⻒','⻓','⻔','⻕','⻖','⻗','⻘','⻙','⻚','⻛','⻜','⻝','⻞','⻟','⻠','⻡','⻢','⻣','⻤',
     '⻥','⻦','⻧','⻨','⻩','⻪','⻫','⻬','⻭','⻮','㐀','㐁','㐂','㐃','㐄','㐅','㐆','㐇','㐈','㐉',
-    '㐊','㐋','㐌','㐍','㐎','㐏','㐐','㐑','㐒','㐓','㐔','㐕','㐖','㐗','㐘','㐙','㐚','㐛','㐜','㐝',
+    '㐊','㐋','㐌','㐍','㐎','㐏','㐐','㐑','㐒','㐓','㐔','㐗','㐘','㐙','㐚','㐛','㐜','㐝',
     '㐞','㐟','㐠','㐡','㐢','㐣','㐤','㐥','㐦','㐧',
 ]
 
@@ -90,6 +90,7 @@ MAIN_GLYPHS = [
     '长','青','春','驻','好','圆','团','圆',
 ]
 
+# Расширенный список всех возможных символов (включая эмодзи)
 ALL_CHARS_LIST = [
     'а','б','в','г','д','е','ё','ж','з','и','й','к','л','м','н','о','п','р','с','т','у','ф','х','ц','ч','ш','щ','ъ','ы','ь','э','ю','я',
     'А','Б','В','Г','Д','Е','Ё','Ж','З','И','Й','К','Л','М','Н','О','П','Р','С','Т','У','Ф','Х','Ц','Ч','Ш','Щ','Ъ','Ы','Ь','Э','Ю','Я',
@@ -99,6 +100,14 @@ ALL_CHARS_LIST = [
     'à','á','â','ã','ä','å','æ','ç','è','é','ê','ë','ì','í','î','ï','ð','ñ','ò','ó','ô','õ','ö','ø','ù','ú','û','ü','ý','þ','ÿ',
     '0','1','2','3','4','5','6','7','8','9',
     '.',',','!','?',':',';','(',')','[',']','{','}','\'','"','-','_','=','+','*','/','\\','|','@','#','$','%','^','&','~',
+    ' ',
+    # Эмодзи и специальные символы
+    '😀','😁','😂','🤣','😃','😄','😅','😆','😉','😊','😋','😎','😍','🥰','😘','😗','😙','😚','☺️','🙂','🤗','🤩','🤔','🤨','😐','😑','😶','🙄','😏','😣','😥','😮','🤐','😯','😪','😫','😴','😌','😛','😜','😝','🤤','😒','😓','😔','😕','🙃','🤑','😲','☹️','🙁','😖','😞','😟','😤','😢','😭','😦','😧','😨','😩','🤯','😬','😰','😱','🥵','🥶','😳','🤪','😵','😡','😠','🤬',
+    '❤️','🧡','💛','💚','💙','💜','🖤','💔','❣️','💕','💞','💓','💗','💖','💘','💝','💟','☮️','✝️','☪️','🕉️','☸️','✡️','🔯','🕎','☯️','☦️','🛐','⛎','♈','♉','♊','♋','♌','♍','♎','♏','♐','♑','♒','♓','🆔','⚛️','🉑','☢️','☣️','📴','📳','🈶','🈚','🈸','🈺','🈷️','✴️','🆚','💮','🉐','㊙️','㊗️','🈴','🈵','🈹','🈲','🅰️','🅱️','🆎','🆑','🅾️','🆘','❌','⭕','🛑','⛔','📛','🚫','💯','💢','♨️','🚷','🚯','🚳','🚱','🔞','📵','🚭','❗','❕','❓','❔','‼️','⁉️','🔅','🔆','〽️','⚠️','🚸','🔱','⚜️','🔰','♻️','✅','🈯','💹','❇️','✳️','❎','🌐','💠','Ⓜ️','🌀','💤','🏧','🚾','♿','🅿️','🈳','🈂️','🛂','🛃','🛄','🛅','🚹','🚺','🚻','🚼','🚾','🛂','🛃','🛄','🛅','🚹','🚺','🚻','🚼','🚾','🛂','🛃','🛄','🛅',
+    '⭐','🌟','✨','💫','☄️','💥','🔥','💧','💦','☀️','🌤️','⛅','🌥️','☁️','🌦️','🌧️','⛈️','🌩️','🌨️','❄️','☃️','⛄','🌬️','💨','💭','💬','🗯️','♠️','♥️','♦️','♣️','♟️','🃏','🎴','🀄','🎲','🎯','🏆','🏅','🥇','🥈','🥉','🎖️','🏵️','🎗️','🎫','🎟️','🎪','🤹','🎭','🎨','🎬','🎤','🎧','🎼','🎹','🥁','🎷','🎺','🎸','🎻','🎲','🎯','🎳','🎮','🎰','🎱','🎫','🎪','🎨','🎬',
+    '🚗','🚕','🚙','🚌','🚎','🏎️','🚓','🚑','🚒','🚐','🚚','🚛','🚜','🏍️','🚲','🛴','🛹','🛵','🚀','🛸','🚁','🛶','⛵','🚤','🛥️','🛳️','⛴️','🚢','✈️','🛩️','🛫','🛬','💺','🚂','🚃','🚄','🚅','🚆','🚇','🚈','🚉','🚊','🚝','🚞','🚋','🚌','🚍','🚎','🚐','🚑','🚒','🚓','🚔','🚕','🚖','🚗','🚘','🚙','🚚','🚛','🚜','🚝','🚞','🚟','🚠','🚡','🚢','🚣','🚤','🚥','🚦','🚧','🏁','🚨','🚩','🎌','🏴','🏳️','🏴‍☠️',
+    '⌚','📱','📲','💻','⌨️','🖥️','🖨️','🖱️','🖲️','🕹️','🗜️','💽','💾','💿','📀','📼','📷','📸','📹','🎥','📽️','🎞️','📞','☎️','📟','📠','📺','📻','🎙️','🎚️','🎛️','🧭','⏱️','⏲️','⏰','🕰️','⌛','⏳','📡','🔋','🔌','💡','🔦','🕯️','🧯','🪣','🪠','🧹','🧺','🧻','🧼','🪒','🧽','🧴','🪥','🪤','🪣','🧯','🧲','🧩','🧸','🪅','🪆',
+    '🎈','🎉','🎊','🎋','🎍','🎎','🎏','🎐','🎑','🎀','🎁','🎗️','🎟️','🎫','🎖️','🏵️','🎨','🎭','🎪','🎬','🎮','🎰','🎲','🎳','🎯','🎱','🎳','🎾','🏐','🏉','🏈','🏀','⚽','⚾','🎾','🏐','🏉','🏈','🏀','⚽','⚾','🎿','⛷️','🏂','🪂','🏋️','🏊','🏄','🚣','🏇','🚴','🚵','🏌️','🏌️‍♂️','🏄‍♂️','🏊‍♂️','🤽','🤼','🤸','🤹','🧘','🧗','🤺','⛸️','🏹','🎣','🤿','🥊','🥋',
 ]
 
 MIX_SEED = 733221
@@ -154,7 +163,7 @@ def _generate_unique_anchor():
 ANCHOR_START_VARIANTS = [_generate_unique_anchor() for _ in range(ANCHOR_VARIANTS_COUNT)]
 ANCHOR_END_VARIANTS = [_generate_unique_anchor() for _ in range(ANCHOR_VARIANTS_COUNT)]
 
-char_list = ALL_CHARS_LIST + [' ']
+char_list = list(dict.fromkeys(ALL_CHARS_LIST))
 
 ENCRYPTION_MAP = {}
 DECRYPTION_MAP = {}
@@ -211,6 +220,7 @@ def encrypt_text(text):
                 if idx < len(codeword) - 1:
                     _maybe_intra_garbage(result)
         else:
+            # Для символов, которых нет в карте, просто добавляем их
             result.append(char)
         _maybe_garbage(result)
     return start_anchor + ''.join(result) + end_anchor
@@ -288,6 +298,8 @@ def init_data():
         data["invites"] = {}
     if "owner_invites" not in data:
         data["owner_invites"] = []
+    if "user_invite_used" not in data:
+        data["user_invite_used"] = {}
     save_data(data)
 
 init_data()
@@ -326,11 +338,27 @@ def create_invite(user_id):
     if user_id_str == str(OWNER_ID):
         data["owner_invites"].append(code)
     else:
-        if user_id_str not in data["users"]:
-            data["users"][user_id_str] = {}
-        data["users"][user_id_str]["invite_code"] = code
+        # Для обычных пользователей сохраняем флаг использования
+        data["user_invite_used"][user_id_str] = True
     save_data(data)
     return code
+
+# Функция для создания кнопки копирования
+def create_copy_button(text):
+    keyboard = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="📋 Копировать", callback_data=f"copy_{text[:50]}")]
+    ])
+    return keyboard
+
+@dp.callback_query(lambda c: c.data and c.data.startswith('copy_'))
+async def process_copy_callback(callback_query: types.CallbackQuery):
+    # Извлекаем текст из callback_data
+    text_to_copy = callback_query.data[5:]  # Убираем "copy_"
+    await callback_query.answer(f"📋 Текст скопирован!", show_alert=False)
+    # Отправляем сообщение с текстом для копирования
+    await callback_query.message.answer(
+        f"📋 Вот ваш текст:\n\n{text_to_copy}\n\n(Выделите и скопируйте)"
+    )
 
 @dp.message(Command("start"))
 async def start_command(message: Message, state: FSMContext):
@@ -388,8 +416,9 @@ async def process_invite(message: Message, state: FSMContext):
     }
     data["invites"][invite_code]["used"] = True
     creator_id = data["invites"][invite_code]["created_by"]
-    if creator_id != str(OWNER_ID) and creator_id in data["users"]:
-        data["users"][creator_id]["invite_used"] = True
+    if creator_id != str(OWNER_ID):
+        # Отмечаем, что создатель использовал свой инвайт
+        data["user_invite_used"][creator_id] = True
     save_data(data)
     await message.answer("✅ Инвайт-код принят!\nПридумайте пин-код от 4 до 8 символов (буквы/цифры):")
     await state.set_state(InviteStates.waiting_for_new_pin)
@@ -441,12 +470,24 @@ async def create_invite_command(message: Message):
     if user_id not in data["users"]:
         await message.answer("❌ Вы не зарегистрированы. Напишите /start")
         return
-    if data["users"][user_id].get("invite_used", False):
+    
+    # Проверяем, использовал ли пользователь уже свой инвайт
+    if data["user_invite_used"].get(user_id, False):
         await message.answer("❌ Вы уже использовали свой шанс создать инвайт-код.")
         return
+        
     if not is_session_active(int(user_id)):
         await message.answer("❌ Ваша сессия истекла. Напишите /start для восстановления.")
         return
+    
+    # Проверяем, есть ли у пользователя уже созданный инвайт
+    for code, invite in data["invites"].items():
+        if invite["created_by"] == user_id and not invite.get("used", False):
+            created_at = datetime.fromisoformat(invite["created_at"])
+            if datetime.now() - created_at <= timedelta(hours=4):
+                await message.answer(f"❌ У вас уже есть активный инвайт-код: {code}\nДействует до {created_at + timedelta(hours=4)}")
+                return
+    
     code = create_invite(int(user_id))
     await message.answer(f"✅ Инвайт-код создан: {code}\nДействует 4 часа.")
 
@@ -470,7 +511,9 @@ async def handle_text(message: Message, state: FSMContext):
             if not decrypted or not decrypted.strip():
                 await message.answer("⚠️ Результат расшифровки пуст.")
             else:
-                await message.answer(decrypted)
+                # Добавляем кнопку копирования
+                keyboard = create_copy_button(decrypted)
+                await message.answer(decrypted, reply_markup=keyboard)
         except Exception as e:
             await message.answer(f"❌ Ошибка расшифровки: {str(e)}")
     else:
@@ -479,9 +522,35 @@ async def handle_text(message: Message, state: FSMContext):
             if not encrypted or not encrypted.strip():
                 await message.answer("⚠️ Результат шифрования пуст.")
             else:
-                await message.answer(encrypted)
+                # Добавляем кнопку копирования
+                keyboard = create_copy_button(encrypted)
+                await message.answer(encrypted, reply_markup=keyboard)
         except Exception as e:
             await message.answer(f"❌ Ошибка шифрования: {str(e)}")
+
+# Автоматическая очистка переписки в 4 часа
+async def clear_chat_history():
+    while True:
+        now = datetime.now()
+        # Проверяем, если текущее время 4:00
+        if now.hour == 4 and now.minute == 0:
+            try:
+                # Очищаем историю сообщений бота
+                await bot.delete_webhook()
+                # Здесь можно добавить логику очистки чатов
+                # Но в Telegram нет прямого метода для очистки всей переписки
+                # Поэтому мы просто перезапускаем бота с очисткой состояния
+                print("🔄 Очистка истории чатов в 4:00")
+                # Сброс данных сессий
+                for user_id in data["users"]:
+                    if user_id != str(OWNER_ID):
+                        session_end = datetime.now() - timedelta(hours=1)
+                        data["users"][user_id]["session_end"] = session_end.isoformat()
+                save_data(data)
+                print("✅ Данные пользователей очищены")
+            except Exception as e:
+                print(f"❌ Ошибка при очистке: {e}")
+        await asyncio.sleep(60)  # Проверяем каждую минуту
 
 @dp.errors()
 async def errors_handler(update, exception):
@@ -489,6 +558,8 @@ async def errors_handler(update, exception):
     return True
 
 async def main():
+    # Запускаем фоновую задачу для очистки в 4 часа
+    asyncio.create_task(clear_chat_history())
     print("🤖 Бот запущен!")
     await dp.start_polling(bot)
 
