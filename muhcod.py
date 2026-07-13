@@ -7,7 +7,7 @@ from datetime import datetime, timedelta
 from cryptography.fernet import Fernet
 from aiogram import Bot, Dispatcher, types
 from aiogram.filters import Command
-from aiogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton
+from aiogram.types import Message
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.fsm.storage.memory import MemoryStorage
@@ -55,7 +55,7 @@ GARBAGE_POOL = [
     '⺽','⺾','⺿','⻀','⻁','⻂','⻃','⻄','⻅','⻆','⻇','⻈','⻉','⻊','⻋','⻌','⻍','⻎','⻏','⻐',
     '⻑','⻒','⻓','⻔','⻕','⻖','⻗','⻘','⻙','⻚','⻛','⻜','⻝','⻞','⻟','⻠','⻡','⻢','⻣','⻤',
     '⻥','⻦','⻧','⻨','⻩','⻪','⻫','⻬','⻭','⻮','㐀','㐁','㐂','㐃','㐄','㐅','㐆','㐇','㐈','㐉',
-    '㐊','㐋','㐌','㐍','㐎','㐏','㐐','㐑','㐒','㐓','㐔','㐗','㐘','㐙','㐚','㐛','㐜','㐝',
+    '㐊','㐋','㐌','㐍','㐎','㐏','㐐','㐑','㐒','㐓','㐔','㐕','㐖','㐗','㐘','㐙','㐚','㐛','㐜','㐝',
     '㐞','㐟','㐠','㐡','㐢','㐣','㐤','㐥','㐦','㐧',
 ]
 
@@ -90,7 +90,6 @@ MAIN_GLYPHS = [
     '长','青','春','驻','好','圆','团','圆',
 ]
 
-# Расширенный список всех возможных символов (включая эмодзи)
 ALL_CHARS_LIST = [
     'а','б','в','г','д','е','ё','ж','з','и','й','к','л','м','н','о','п','р','с','т','у','ф','х','ц','ч','ш','щ','ъ','ы','ь','э','ю','я',
     'А','Б','В','Г','Д','Е','Ё','Ж','З','И','Й','К','Л','М','Н','О','П','Р','С','Т','У','Ф','Х','Ц','Ч','Ш','Щ','Ъ','Ы','Ь','Э','Ю','Я',
@@ -100,14 +99,6 @@ ALL_CHARS_LIST = [
     'à','á','â','ã','ä','å','æ','ç','è','é','ê','ë','ì','í','î','ï','ð','ñ','ò','ó','ô','õ','ö','ø','ù','ú','û','ü','ý','þ','ÿ',
     '0','1','2','3','4','5','6','7','8','9',
     '.',',','!','?',':',';','(',')','[',']','{','}','\'','"','-','_','=','+','*','/','\\','|','@','#','$','%','^','&','~',
-    ' ',
-    # Эмодзи и специальные символы
-    '😀','😁','😂','🤣','😃','😄','😅','😆','😉','😊','😋','😎','😍','🥰','😘','😗','😙','😚','☺️','🙂','🤗','🤩','🤔','🤨','😐','😑','😶','🙄','😏','😣','😥','😮','🤐','😯','😪','😫','😴','😌','😛','😜','😝','🤤','😒','😓','😔','😕','🙃','🤑','😲','☹️','🙁','😖','😞','😟','😤','😢','😭','😦','😧','😨','😩','🤯','😬','😰','😱','🥵','🥶','😳','🤪','😵','😡','😠','🤬',
-    '❤️','🧡','💛','💚','💙','💜','🖤','💔','❣️','💕','💞','💓','💗','💖','💘','💝','💟','☮️','✝️','☪️','🕉️','☸️','✡️','🔯','🕎','☯️','☦️','🛐','⛎','♈','♉','♊','♋','♌','♍','♎','♏','♐','♑','♒','♓','🆔','⚛️','🉑','☢️','☣️','📴','📳','🈶','🈚','🈸','🈺','🈷️','✴️','🆚','💮','🉐','㊙️','㊗️','🈴','🈵','🈹','🈲','🅰️','🅱️','🆎','🆑','🅾️','🆘','❌','⭕','🛑','⛔','📛','🚫','💯','💢','♨️','🚷','🚯','🚳','🚱','🔞','📵','🚭','❗','❕','❓','❔','‼️','⁉️','🔅','🔆','〽️','⚠️','🚸','🔱','⚜️','🔰','♻️','✅','🈯','💹','❇️','✳️','❎','🌐','💠','Ⓜ️','🌀','💤','🏧','🚾','♿','🅿️','🈳','🈂️','🛂','🛃','🛄','🛅','🚹','🚺','🚻','🚼','🚾','🛂','🛃','🛄','🛅','🚹','🚺','🚻','🚼','🚾','🛂','🛃','🛄','🛅',
-    '⭐','🌟','✨','💫','☄️','💥','🔥','💧','💦','☀️','🌤️','⛅','🌥️','☁️','🌦️','🌧️','⛈️','🌩️','🌨️','❄️','☃️','⛄','🌬️','💨','💭','💬','🗯️','♠️','♥️','♦️','♣️','♟️','🃏','🎴','🀄','🎲','🎯','🏆','🏅','🥇','🥈','🥉','🎖️','🏵️','🎗️','🎫','🎟️','🎪','🤹','🎭','🎨','🎬','🎤','🎧','🎼','🎹','🥁','🎷','🎺','🎸','🎻','🎲','🎯','🎳','🎮','🎰','🎱','🎫','🎪','🎨','🎬',
-    '🚗','🚕','🚙','🚌','🚎','🏎️','🚓','🚑','🚒','🚐','🚚','🚛','🚜','🏍️','🚲','🛴','🛹','🛵','🚀','🛸','🚁','🛶','⛵','🚤','🛥️','🛳️','⛴️','🚢','✈️','🛩️','🛫','🛬','💺','🚂','🚃','🚄','🚅','🚆','🚇','🚈','🚉','🚊','🚝','🚞','🚋','🚌','🚍','🚎','🚐','🚑','🚒','🚓','🚔','🚕','🚖','🚗','🚘','🚙','🚚','🚛','🚜','🚝','🚞','🚟','🚠','🚡','🚢','🚣','🚤','🚥','🚦','🚧','🏁','🚨','🚩','🎌','🏴','🏳️','🏴‍☠️',
-    '⌚','📱','📲','💻','⌨️','🖥️','🖨️','🖱️','🖲️','🕹️','🗜️','💽','💾','💿','📀','📼','📷','📸','📹','🎥','📽️','🎞️','📞','☎️','📟','📠','📺','📻','🎙️','🎚️','🎛️','🧭','⏱️','⏲️','⏰','🕰️','⌛','⏳','📡','🔋','🔌','💡','🔦','🕯️','🧯','🪣','🪠','🧹','🧺','🧻','🧼','🪒','🧽','🧴','🪥','🪤','🪣','🧯','🧲','🧩','🧸','🪅','🪆',
-    '🎈','🎉','🎊','🎋','🎍','🎎','🎏','🎐','🎑','🎀','🎁','🎗️','🎟️','🎫','🎖️','🏵️','🎨','🎭','🎪','🎬','🎮','🎰','🎲','🎳','🎯','🎱','🎳','🎾','🏐','🏉','🏈','🏀','⚽','⚾','🎾','🏐','🏉','🏈','🏀','⚽','⚾','🎿','⛷️','🏂','🪂','🏋️','🏊','🏄','🚣','🏇','🚴','🚵','🏌️','🏌️‍♂️','🏄‍♂️','🏊‍♂️','🤽','🤼','🤸','🤹','🧘','🧗','🤺','⛸️','🏹','🎣','🤿','🥊','🥋',
 ]
 
 MIX_SEED = 733221
@@ -163,7 +154,33 @@ def _generate_unique_anchor():
 ANCHOR_START_VARIANTS = [_generate_unique_anchor() for _ in range(ANCHOR_VARIANTS_COUNT)]
 ANCHOR_END_VARIANTS = [_generate_unique_anchor() for _ in range(ANCHOR_VARIANTS_COUNT)]
 
-char_list = list(dict.fromkeys(ALL_CHARS_LIST))
+# --- Служебный маркер для эскейп-последовательности (кодирование ЛЮБОГО символа, включая эмодзи) ---
+# Символ вне ALL_CHARS_LIST/пробела кодируется как:
+#   MARKER_START + <4 "цифры" номера code point'а в системе счисления по основанию 62>
+# База 62 (0-9, a-z, A-Z — все эти символы уже есть в общей таблице) вместо десятичной
+# позволяет ужать номер символа (максимум 0x10FFFF) всегда ровно в 4 "цифры" вместо
+# 6-7 десятичных, и благодаря фиксированной длине не нужен отдельный маркер конца.
+# Это позволяет шифровать буквально любой существующий символ Unicode (эмодзи, ZWJ-последовательности,
+# редкие письменности и т.д.), а не только заранее перечисленные, и заметно короче, чем десятичный вариант.
+ESCAPE_MARKER_START = '\uE000'
+BASE62_ALPHABET = string.digits + string.ascii_lowercase + string.ascii_uppercase  # 62 символа
+BASE62_CODEPOINT_WIDTH = 4  # 62**4 = 14 776 336 > 0x10FFFF (1 114 111) — с запасом хватает
+_BASE62_INDEX = {ch: i for i, ch in enumerate(BASE62_ALPHABET)}
+
+def _int_to_base62_fixed(n, width=BASE62_CODEPOINT_WIDTH):
+    digits = []
+    for _ in range(width):
+        n, rem = divmod(n, 62)
+        digits.append(BASE62_ALPHABET[rem])
+    return ''.join(reversed(digits))
+
+def _base62_fixed_to_int(s):
+    n = 0
+    for ch in s:
+        n = n * 62 + _BASE62_INDEX[ch]
+    return n
+
+char_list = ALL_CHARS_LIST + [' ', ESCAPE_MARKER_START]
 
 ENCRYPTION_MAP = {}
 DECRYPTION_MAP = {}
@@ -206,6 +223,21 @@ def normalize_text(text):
         text = text.replace(old, new)
     return text
 
+def _append_codeword(result, codeword):
+    for idx, glyph in enumerate(codeword):
+        result.append(glyph)
+        if idx < len(codeword) - 1:
+            _maybe_intra_garbage(result)
+
+def _encrypt_char_as_codepoint(result, char):
+    # Универсальный путь: кодируем номер символа (code point) в base62 фиксированной
+    # длины через уже существующие шифровки алфавитно-цифровых символов, начиная с маркера.
+    start_cw = random.choice(ENCRYPTION_MAP[ESCAPE_MARKER_START])
+    _append_codeword(result, start_cw)
+    for digit in _int_to_base62_fixed(ord(char)):
+        digit_cw = random.choice(ENCRYPTION_MAP[digit])
+        _append_codeword(result, digit_cw)
+
 def encrypt_text(text):
     text = normalize_text(text)
     start_anchor = random.choice(ANCHOR_START_VARIANTS)
@@ -215,13 +247,11 @@ def encrypt_text(text):
     for char in text:
         if char in ENCRYPTION_MAP:
             codeword = random.choice(ENCRYPTION_MAP[char])
-            for idx, glyph in enumerate(codeword):
-                result.append(glyph)
-                if idx < len(codeword) - 1:
-                    _maybe_intra_garbage(result)
+            _append_codeword(result, codeword)
         else:
-            # Для символов, которых нет в карте, просто добавляем их
-            result.append(char)
+            # Любой другой существующий символ Unicode, включая эмодзи —
+            # кодируем универсальным способом через его код-поинт.
+            _encrypt_char_as_codepoint(result, char)
         _maybe_garbage(result)
     return start_anchor + ''.join(result) + end_anchor
 
@@ -259,12 +289,36 @@ def decrypt_text(text):
             i += 1
             continue
         matched = _try_match_codeword(body, i, n)
-        if matched is not None:
-            char, next_i = matched
-            result.append(char)
-            i = next_i
+        if matched is None:
+            i += 1
             continue
-        i += 1
+        char, next_i = matched
+        if char == ESCAPE_MARKER_START:
+            # Считываем ровно BASE62_CODEPOINT_WIDTH "цифр" base62 подряд —
+            # длина фиксирована, поэтому отдельный маркер конца не нужен.
+            digits = []
+            j = next_i
+            ok = True
+            for _ in range(BASE62_CODEPOINT_WIDTH):
+                sub_matched = _try_match_codeword(body, j, n)
+                if sub_matched is None:
+                    ok = False
+                    break
+                sub_char, sub_next_i = sub_matched
+                if sub_char not in _BASE62_INDEX:
+                    ok = False
+                    break
+                digits.append(sub_char)
+                j = sub_next_i
+            if ok:
+                try:
+                    result.append(chr(_base62_fixed_to_int(''.join(digits))))
+                except (ValueError, OverflowError):
+                    pass
+            i = j
+            continue
+        result.append(char)
+        i = next_i
     return ''.join(result)
 
 def is_encrypted_text(text):
@@ -298,8 +352,6 @@ def init_data():
         data["invites"] = {}
     if "owner_invites" not in data:
         data["owner_invites"] = []
-    if "user_invite_used" not in data:
-        data["user_invite_used"] = {}
     save_data(data)
 
 init_data()
@@ -308,13 +360,11 @@ def generate_invite_code():
     return ''.join(random.choices(string.digits, k=6))
 
 def is_invite_valid(code):
+    # Таймер действия инвайт-кода убран по требованию — код действителен, пока не использован.
     if code not in data["invites"]:
         return False
     invite = data["invites"][code]
     if invite.get("used", False):
-        return False
-    created_at = datetime.fromisoformat(invite["created_at"])
-    if datetime.now() - created_at > timedelta(hours=4):
         return False
     return True
 
@@ -338,27 +388,17 @@ def create_invite(user_id):
     if user_id_str == str(OWNER_ID):
         data["owner_invites"].append(code)
     else:
-        # Для обычных пользователей сохраняем флаг использования
-        data["user_invite_used"][user_id_str] = True
+        if user_id_str not in data["users"]:
+            data["users"][user_id_str] = {}
+        data["users"][user_id_str]["invite_code"] = code
+        # Фикс бага: раньше invite_used выставлялся в True только когда код был
+        # ИСПОЛЬЗОВАН кем-то другим, поэтому обычный пользователь мог создать
+        # сколько угодно кодов подряд, пока ни один из них не активировали.
+        # Теперь право на создание инвайта считается потраченным сразу при
+        # создании кода, а не при его активации.
+        data["users"][user_id_str]["invite_used"] = True
     save_data(data)
     return code
-
-# Функция для создания кнопки копирования
-def create_copy_button(text):
-    keyboard = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="📋 Копировать", callback_data=f"copy_{text[:50]}")]
-    ])
-    return keyboard
-
-@dp.callback_query(lambda c: c.data and c.data.startswith('copy_'))
-async def process_copy_callback(callback_query: types.CallbackQuery):
-    # Извлекаем текст из callback_data
-    text_to_copy = callback_query.data[5:]  # Убираем "copy_"
-    await callback_query.answer(f"📋 Текст скопирован!", show_alert=False)
-    # Отправляем сообщение с текстом для копирования
-    await callback_query.message.answer(
-        f"📋 Вот ваш текст:\n\n{text_to_copy}\n\n(Выделите и скопируйте)"
-    )
 
 @dp.message(Command("start"))
 async def start_command(message: Message, state: FSMContext):
@@ -415,10 +455,6 @@ async def process_invite(message: Message, state: FSMContext):
         "invite_code": None
     }
     data["invites"][invite_code]["used"] = True
-    creator_id = data["invites"][invite_code]["created_by"]
-    if creator_id != str(OWNER_ID):
-        # Отмечаем, что создатель использовал свой инвайт
-        data["user_invite_used"][creator_id] = True
     save_data(data)
     await message.answer("✅ Инвайт-код принят!\nПридумайте пин-код от 4 до 8 символов (буквы/цифры):")
     await state.set_state(InviteStates.waiting_for_new_pin)
@@ -465,31 +501,19 @@ async def create_invite_command(message: Message):
     user_id = str(message.from_user.id)
     if user_id == str(OWNER_ID):
         code = create_invite(int(user_id))
-        await message.answer(f"👑 Хозяин, инвайт-код создан: {code}\nДействует 4 часа.")
+        await message.answer(f"👑 Хозяин, инвайт-код создан: {code}")
         return
     if user_id not in data["users"]:
         await message.answer("❌ Вы не зарегистрированы. Напишите /start")
         return
-    
-    # Проверяем, использовал ли пользователь уже свой инвайт
-    if data["user_invite_used"].get(user_id, False):
-        await message.answer("❌ Вы уже использовали свой шанс создать инвайт-код.")
+    if data["users"][user_id].get("invite_used", False):
+        await message.answer("❌ Вы уже использовали свой единственный шанс создать инвайт-код.")
         return
-        
     if not is_session_active(int(user_id)):
         await message.answer("❌ Ваша сессия истекла. Напишите /start для восстановления.")
         return
-    
-    # Проверяем, есть ли у пользователя уже созданный инвайт
-    for code, invite in data["invites"].items():
-        if invite["created_by"] == user_id and not invite.get("used", False):
-            created_at = datetime.fromisoformat(invite["created_at"])
-            if datetime.now() - created_at <= timedelta(hours=4):
-                await message.answer(f"❌ У вас уже есть активный инвайт-код: {code}\nДействует до {created_at + timedelta(hours=4)}")
-                return
-    
     code = create_invite(int(user_id))
-    await message.answer(f"✅ Инвайт-код создан: {code}\nДействует 4 часа.")
+    await message.answer(f"✅ Инвайт-код создан: {code}\n(это был ваш единственный инвайт-код)")
 
 @dp.message()
 async def handle_text(message: Message, state: FSMContext):
@@ -511,9 +535,7 @@ async def handle_text(message: Message, state: FSMContext):
             if not decrypted or not decrypted.strip():
                 await message.answer("⚠️ Результат расшифровки пуст.")
             else:
-                # Добавляем кнопку копирования
-                keyboard = create_copy_button(decrypted)
-                await message.answer(decrypted, reply_markup=keyboard)
+                await message.answer(decrypted)
         except Exception as e:
             await message.answer(f"❌ Ошибка расшифровки: {str(e)}")
     else:
@@ -522,35 +544,9 @@ async def handle_text(message: Message, state: FSMContext):
             if not encrypted or not encrypted.strip():
                 await message.answer("⚠️ Результат шифрования пуст.")
             else:
-                # Добавляем кнопку копирования
-                keyboard = create_copy_button(encrypted)
-                await message.answer(encrypted, reply_markup=keyboard)
+                await message.answer(encrypted)
         except Exception as e:
             await message.answer(f"❌ Ошибка шифрования: {str(e)}")
-
-# Автоматическая очистка переписки в 4 часа
-async def clear_chat_history():
-    while True:
-        now = datetime.now()
-        # Проверяем, если текущее время 4:00
-        if now.hour == 4 and now.minute == 0:
-            try:
-                # Очищаем историю сообщений бота
-                await bot.delete_webhook()
-                # Здесь можно добавить логику очистки чатов
-                # Но в Telegram нет прямого метода для очистки всей переписки
-                # Поэтому мы просто перезапускаем бота с очисткой состояния
-                print("🔄 Очистка истории чатов в 4:00")
-                # Сброс данных сессий
-                for user_id in data["users"]:
-                    if user_id != str(OWNER_ID):
-                        session_end = datetime.now() - timedelta(hours=1)
-                        data["users"][user_id]["session_end"] = session_end.isoformat()
-                save_data(data)
-                print("✅ Данные пользователей очищены")
-            except Exception as e:
-                print(f"❌ Ошибка при очистке: {e}")
-        await asyncio.sleep(60)  # Проверяем каждую минуту
 
 @dp.errors()
 async def errors_handler(update, exception):
@@ -558,8 +554,6 @@ async def errors_handler(update, exception):
     return True
 
 async def main():
-    # Запускаем фоновую задачу для очистки в 4 часа
-    asyncio.create_task(clear_chat_history())
     print("🤖 Бот запущен!")
     await dp.start_polling(bot)
 
