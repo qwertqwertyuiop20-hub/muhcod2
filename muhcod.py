@@ -3,7 +3,7 @@ import random
 import string
 import json
 import os
-from datetime import datetime, timedelta
+from datetime import datetime
 from cryptography.fernet import Fernet
 from aiogram import Bot, Dispatcher, types
 from aiogram.filters import Command
@@ -45,8 +45,6 @@ dp = Dispatcher(storage=storage)
 
 class InviteStates(StatesGroup):
     waiting_for_invite = State()
-    waiting_for_pin = State()
-    waiting_for_new_pin = State()
 
 GARBAGE_POOL = [
     '⺀','⺁','⺂','⺃','⺄','⺅','⺆','⺇','⺈','⺉','⺊','⺋','⺌','⺍','⺎','⺏','⺐','⺑','⺒','⺓',
@@ -368,12 +366,8 @@ def is_invite_valid(code):
         return False
     return True
 
-def is_session_active(user_id):
-    user_id_str = str(user_id)
-    if user_id_str not in data["users"]:
-        return False
-    session_end = datetime.fromisoformat(data["users"][user_id_str]["session_end"])
-    return datetime.now() < session_end
+def is_registered(user_id):
+    return str(user_id) in data["users"]
 
 def create_invite(user_id):
     user_id_str = str(user_id)
@@ -405,20 +399,12 @@ async def start_command(message: Message, state: FSMContext):
     user_id = str(message.from_user.id)
     if user_id == str(OWNER_ID):
         if user_id not in data["users"]:
-            session_end = datetime.now() + timedelta(hours=4)
             data["users"][user_id] = {
-                "pin": "admin",
-                "session_end": session_end.isoformat(),
                 "invite_used": False,
                 "invite_code": None
             }
             save_data(data)
-            await message.answer("👑 Добро пожаловать, Хозяин!\n\n📋 Доступные команды:\n/start - показать это сообщение\n/invite - создать инвайт-код для друга\n\n🔐 Сессия активна!\nОтправьте текст для шифрования или расшифровки.")
-        else:
-            session_end = datetime.now() + timedelta(hours=4)
-            data["users"][user_id]["session_end"] = session_end.isoformat()
-            save_data(data)
-            await message.answer("👑 Хозяин, сессия обновлена!\n\n📋 Доступные команды:\n/start - показать это сообщение\n/invite - создать инвайт-код\n\nОтправьте текст для шифрования или расшифровки.")
+        await message.answer("👑 Добро пожаловать, Хозяин!\n\n📋 Доступные команды:\n/start - показать это сообщение\n/invite - создать инвайт-код для друга\n\nОтправьте текст для шифрования или расшифровки.")
         return
 
     if user_id not in data["users"]:
@@ -426,12 +412,7 @@ async def start_command(message: Message, state: FSMContext):
         await state.set_state(InviteStates.waiting_for_invite)
         return
 
-    if is_session_active(message.from_user.id):
-        await message.answer("✅ Ваша сессия активна!\n\n📋 Доступные команды:\n/start - показать это сообщение\n/invite - создать инвайт-код для друга (1 раз)\n\nОтправьте текст для шифрования или расшифровки.")
-        return
-
-    await message.answer("⏰ Ваша сессия истекла.\nВведите ваш пин-код для восстановления сессии:")
-    await state.set_state(InviteStates.waiting_for_pin)
+    await message.answer("✅ Доступ активен!\n\n📋 Доступные команды:\n/start - показать это сообщение\n/invite - создать инвайт-код для друга (1 раз)\n\nОтправьте текст для шифрования или расшифровки.")
 
 @dp.message(InviteStates.waiting_for_invite)
 async def process_invite(message: Message, state: FSMContext):
@@ -447,53 +428,13 @@ async def process_invite(message: Message, state: FSMContext):
     if not is_invite_valid(invite_code):
         await message.answer("❌ Недействительный или использованный инвайт-код. Попробуйте снова:")
         return
-    session_end = datetime.now() + timedelta(hours=4)
     data["users"][user_id] = {
-        "pin": "",
-        "session_end": session_end.isoformat(),
         "invite_used": False,
         "invite_code": None
     }
     data["invites"][invite_code]["used"] = True
     save_data(data)
-    await message.answer("✅ Инвайт-код принят!\nПридумайте пин-код от 4 до 8 символов (буквы/цифры):")
-    await state.set_state(InviteStates.waiting_for_new_pin)
-
-@dp.message(InviteStates.waiting_for_new_pin)
-async def process_new_pin(message: Message, state: FSMContext):
-    pin = message.text.strip()
-    user_id = str(message.from_user.id)
-    if user_id == str(OWNER_ID):
-        await message.answer("👑 Хозяин, вы уже зарегистрированы.")
-        await state.clear()
-        return
-    if len(pin) < 4 or len(pin) > 8:
-        await message.answer("❌ Пин-код должен быть от 4 до 8 символов. Попробуйте снова:")
-        return
-    data["users"][user_id]["pin"] = pin
-    save_data(data)
-    await message.answer("✅ Пин-код установлен! Сессия активна 4 часа.\n\n📋 Доступные команды:\n/start - показать это сообщение\n/invite - создать инвайт-код для друга (1 раз)\n\nОтправьте текст для шифрования или расшифровки.")
-    await state.clear()
-
-@dp.message(InviteStates.waiting_for_pin)
-async def process_pin(message: Message, state: FSMContext):
-    pin = message.text.strip()
-    user_id = str(message.from_user.id)
-    if user_id == str(OWNER_ID):
-        await message.answer("👑 Хозяин, вам не нужен пин-код. Просто напишите /start")
-        await state.clear()
-        return
-    if user_id not in data["users"]:
-        await message.answer("❌ Пользователь не найден. Напишите /start")
-        await state.clear()
-        return
-    if data["users"][user_id]["pin"] != pin:
-        await message.answer("❌ Неверный пин-код. Попробуйте снова:")
-        return
-    session_end = datetime.now() + timedelta(hours=4)
-    data["users"][user_id]["session_end"] = session_end.isoformat()
-    save_data(data)
-    await message.answer("✅ Сессия восстановлена!\n\n📋 Доступные команды:\n/start - показать это сообщение\n/invite - создать инвайт-код для друга (1 раз)\n\nОтправьте текст для шифрования или расшифровки.")
+    await message.answer("✅ Инвайт-код принят! Доступ открыт.\n\n📋 Доступные команды:\n/start - показать это сообщение\n/invite - создать инвайт-код для друга (1 раз)\n\nОтправьте текст для шифрования или расшифровки.")
     await state.clear()
 
 @dp.message(Command("invite"))
@@ -509,22 +450,14 @@ async def create_invite_command(message: Message):
     if data["users"][user_id].get("invite_used", False):
         await message.answer("❌ Вы уже использовали свой единственный шанс создать инвайт-код.")
         return
-    if not is_session_active(int(user_id)):
-        await message.answer("❌ Ваша сессия истекла. Напишите /start для восстановления.")
-        return
     code = create_invite(int(user_id))
     await message.answer(f"✅ Инвайт-код создан: {code}\n(это был ваш единственный инвайт-код)")
 
 @dp.message()
 async def handle_text(message: Message, state: FSMContext):
     user_id = str(message.from_user.id)
-    if user_id not in data["users"] and user_id != str(OWNER_ID):
+    if not is_registered(user_id) and user_id != str(OWNER_ID):
         await message.answer("❌ Вы не зарегистрированы. Напишите /start")
-        return
-    if user_id == str(OWNER_ID):
-        pass
-    elif not is_session_active(int(user_id)):
-        await message.answer("⏰ Ваша сессия истекла. Напишите /start для восстановления.")
         return
     text = message.text
     if text.startswith('/'):
