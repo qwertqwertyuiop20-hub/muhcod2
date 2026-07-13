@@ -20,7 +20,6 @@ from aiogram.fsm.storage.memory import MemoryStorage
 # переменные в терминале перед запуском.
 BOT_TOKEN = os.environ.get("BOT_TOKEN")
 _owner_id_raw = os.environ.get("OWNER_ID")
-
 if not BOT_TOKEN:
     raise RuntimeError(
         "Переменная окружения BOT_TOKEN не задана. "
@@ -31,7 +30,6 @@ if not _owner_id_raw:
         "Переменная окружения OWNER_ID не задана. "
         "На Railway: Project -> Variables -> добавить OWNER_ID (число)."
     )
-
 try:
     OWNER_ID = int(_owner_id_raw)
 except ValueError:
@@ -148,40 +146,39 @@ MAIN_GLYPHS = [
     '长','青','春','驻','好','圆','团','圆',
 ]
 
+# ИСПРАВЛЕНИЕ: Явно перечисляем все символы, включая ё и Ё
 ALL_CHARS = (
-    'абвгдеёжзийклмнопрстуфхцчшщъыьэюя' +
-    'АБВГДЕЁЖЗИЙКЛМНОПРСТУФХЦЧШЩЪЫЬЭЮЯ' +
-    'abcdefghijklmnopqrstuvwxyz' +
-    'ABCDEFGHIJKLMNOPQRSTUVWXYZ' +
-    '0123456789' +
-    '.,!?:;()[]{}\'"-_=+*/\\|@#$%^&~`'
+    'абвгдеёжзийклмнопрстуфхцчшщъыьэюя'
+    'АБВГДЕЁЖЗИЙКЛМНОПРСТУФХЦЧШЩЪЫЬЭЮЯ'
+    'abcdefghijklmnopqrstuvwxyz'
+    'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
+    '0123456789'
+    '.,!?:;()[]{}\'"-_=+*/\\|@#$%^&~'
 )
 
 # =========================================================================
 # ШИФР v3:
-#  1) Пулы MAIN_GLYPHS и GARBAGE_POOL объединяются и перемешиваются, затем
-#     делятся на "шифровальную" и "мусорную" зоны с намеренным перекрытием -
-#     часть символов из бывшего "мусорного" пула теперь участвует в
-#     построении реальных кодовых слов, и наоборот, часть бывших
-#     "шифровальных" символов используется как шум.
-#  2) Каждый символ (включая пробел) шифруется уникальной комбинацией из
-#     CODEWORD_LENGTH (4) глифов. У каждого символа есть VARIANTS_PER_CHAR
-#     (20) разных кодовых слов, случайно выбираемых при каждом шифровании.
-#  3) Мусор может появляться не только МЕЖДУ кодовыми словами разных
-#     символов, но и ВНУТРИ самого кодового слова - между его отдельными
-#     глифами. Расшифровка поэтому ищет 4 "настоящих" глифа кодового слова
-#     не обязательно подряд, а с учётом того, что между ними могло
-#     затесаться до INTRA_GARBAGE_MAX мусорных символов.
+# 1) Пулы MAIN_GLYPHS и GARBAGE_POOL объединяются и перемешиваются, затем
+# делятся на "шифровальную" и "мусорную" зоны с намеренным перекрытием -
+# часть символов из бывшего "мусорного" пула теперь участвует в
+# построении реальных кодовых слов, и наоборот, часть бывших
+# "шифровальных" символов используется как шум.
+# 2) Каждый символ (включая пробел) шифруется уникальной комбинацией из
+# CODEWORD_LENGTH (4) глифов. У каждого символа есть VARIANTS_PER_CHAR
+# (20) разных кодовых слов, случайно выбираемых при каждом шифровании.
+# 3) Мусор может появляться не только МЕЖДУ кодовыми словами разных
+# символов, но и ВНУТРИ самого кодового слова - между его отдельными
+# глифами. Расшифровка поэтому ищет 4 "настоящих" глифа кодового слова
+# не обязательно подряд, а с учётом того, что между ними могло
+# затесаться до INTRA_GARBAGE_MAX мусорных символов.
 # =========================================================================
-
-MIX_SEED = 733221          # фиксированный seed -> карта стабильна между перезапусками бота
+MIX_SEED = 733221  # фиксированный seed -> карта стабильна между перезапусками бота
 CODEWORD_LENGTH = 4
 VARIANTS_PER_CHAR = 20
-CIPHER_SHARE = 0.60         # доля общего пула, отдаваемая под "шифровальную" зону
-OVERLAP_RATIO = 0.15        # доля намеренного перекрытия между зонами
+CIPHER_SHARE = 0.60  # доля общего пула, отдаваемая под "шифровальную" зону
+OVERLAP_RATIO = 0.15  # доля намеренного перекрытия между зонами
 
 _map_rng = random.Random(MIX_SEED)
-
 _combined_glyphs = list(dict.fromkeys(MAIN_GLYPHS + GARBAGE_POOL))  # dedup, порядок сохранён
 _map_rng.shuffle(_combined_glyphs)
 
@@ -190,8 +187,8 @@ _cipher_end = int(_n * CIPHER_SHARE)
 _overlap_len = int(_n * OVERLAP_RATIO)
 _noise_start = max(_cipher_end - _overlap_len, 0)
 
-CIPHER_POOL = _combined_glyphs[:_cipher_end]   # источник глифов для кодовых слов
-NOISE_POOL = _combined_glyphs[_noise_start:]   # источник глифов для мусора
+CIPHER_POOL = _combined_glyphs[:_cipher_end]  # источник глифов для кодовых слов
+NOISE_POOL = _combined_glyphs[_noise_start:]  # источник глифов для мусора
 # символы в диапазоне [_noise_start:_cipher_end] встречаются в обоих пулах
 
 # =========================================================================
@@ -206,10 +203,10 @@ NOISE_POOL = _combined_glyphs[_noise_start:]   # источник глифов �
 # 20 вариантов конца, все взаимно уникальные, генерируются детерминированно
 # (фиксированный seed), чтобы карта была стабильна между перезапусками бота.
 # =========================================================================
-
 ANCHOR_SEED = 991137
 ANCHOR_LENGTH = 3
 ANCHOR_VARIANTS_COUNT = 20
+
 _CJK_BLOCK_START = 0x4E00
 _CJK_BLOCK_END = 0x9FFF  # основной блок CJK Unified Ideographs (~20 900 символов)
 
@@ -217,7 +214,7 @@ _anchor_rng = random.Random(ANCHOR_SEED)
 _existing_glyphs = set(_combined_glyphs)
 
 def _build_anchor_glyph_pool(size: int = 400) -> list:
-    """Набирает `size` уникальных иероглифов из блока CJK Unified Ideographs,
+    """Набирает size уникальных иероглифов из блока CJK Unified Ideographs,
     которые ещё не используются в CIPHER_POOL/NOISE_POOL - так якоря
     гарантированно не пересекаются с телом шифра."""
     codepoints = list(range(_CJK_BLOCK_START, _CJK_BLOCK_END + 1))
@@ -247,7 +244,14 @@ ANCHOR_END_VARIANTS = [_generate_unique_anchor() for _ in range(ANCHOR_VARIANTS_
 
 # Пробел шифруется наравне со всеми остальными символами - это скрывает
 # границы слов и длину сообщения по "структуре" пробелов.
-char_list = list(ALL_CHARS) + [' ']
+# ИСПРАВЛЕНИЕ: Используем итерацию по строке для корректной обработки всех символов
+char_list = [ch for ch in ALL_CHARS] + [' ']
+
+# Проверка наличия ё и Ё
+if 'ё' not in char_list:
+    raise RuntimeError("Символ 'ё' отсутствует в списке для шифрования!")
+if 'Ё' not in char_list:
+    raise RuntimeError("Символ 'Ё' отсутствует в списке для шифрования!")
 
 ENCRYPTION_MAP = {}
 DECRYPTION_MAP = {}
@@ -267,8 +271,8 @@ for _ch in char_list:
         DECRYPTION_MAP[_cw] = _ch
 
 # --- Мусор между кодовыми словами ---
-GARBAGE_MAX_RUN = 2          # максимум мусорных символов подряд
-GARBAGE_INSERT_CHANCE = 0.45 # вероятность вставки мусора в данном месте
+GARBAGE_MAX_RUN = 2  # максимум мусорных символов подряд
+GARBAGE_INSERT_CHANCE = 0.45  # вероятность вставки мусора в данном месте
 
 def get_garbage_sequence():
     length = random.randint(1, GARBAGE_MAX_RUN)
@@ -281,8 +285,8 @@ def _maybe_garbage(result: list) -> None:
         result.append(get_garbage_sequence())
 
 # --- Мусор ВНУТРИ кодового слова (между его отдельными глифами) ---
-INTRA_GARBAGE_MAX = 2          # максимум мусорных символов между двумя глифами кодового слова
-INTRA_GARBAGE_CHANCE = 0.35    # вероятность вставки мусора в каждом внутреннем "зазоре"
+INTRA_GARBAGE_MAX = 2  # максимум мусорных символов между двумя глифами кодового слова
+INTRA_GARBAGE_CHANCE = 0.35  # вероятность вставки мусора в каждом внутреннем "зазоре"
 
 def _maybe_intra_garbage(result: list) -> None:
     if random.random() < INTRA_GARBAGE_CHANCE:
@@ -360,8 +364,8 @@ def load_data():
         try:
             with open(DATA_FILE, 'rb') as f:
                 encrypted_data = f.read()
-                decrypted_data = cipher_suite.decrypt(encrypted_data)
-                return json.loads(decrypted_data.decode('utf-8'))
+            decrypted_data = cipher_suite.decrypt(encrypted_data)
+            return json.loads(decrypted_data.decode('utf-8'))
         except:
             return {}
     return {}
@@ -483,16 +487,20 @@ async def start_command(message: Message, state: FSMContext):
 async def process_invite(message: Message, state: FSMContext):
     invite_code = message.text.strip()
     user_id = str(message.from_user.id)
+
     if user_id == str(OWNER_ID):
         await message.answer("👑 Хозяин, вам не нужен инвайт. Просто напишите /start")
         await state.clear()
         return
+
     if not invite_code.isdigit() or len(invite_code) != 6:
         await message.answer("❌ Неверный формат. Инвайт-код должен состоять из 6 цифр. Попробуйте снова:")
         return
+
     if not is_invite_valid(invite_code):
         await message.answer("❌ Недействительный или использованный инвайт-код. Попробуйте снова:")
         return
+
     session_end = datetime.now() + timedelta(hours=4)
     data["users"][user_id] = {
         "pin": "",
@@ -501,9 +509,11 @@ async def process_invite(message: Message, state: FSMContext):
         "invite_code": None
     }
     data["invites"][invite_code]["used"] = True
+
     creator_id = data["invites"][invite_code]["created_by"]
     if creator_id != str(OWNER_ID) and creator_id in data["users"]:
         data["users"][creator_id]["invite_used"] = True
+
     save_data(data)
     await message.answer("✅ Инвайт-код принят!\nПридумайте пин-код от 4 до 8 символов (буквы/цифры):")
     await state.set_state(InviteStates.waiting_for_new_pin)
@@ -512,15 +522,19 @@ async def process_invite(message: Message, state: FSMContext):
 async def process_new_pin(message: Message, state: FSMContext):
     pin = message.text.strip()
     user_id = str(message.from_user.id)
+
     if user_id == str(OWNER_ID):
         await message.answer("👑 Хозяин, вы уже зарегистрированы.")
         await state.clear()
         return
+
     if len(pin) < 4 or len(pin) > 8:
         await message.answer("❌ Пин-код должен быть от 4 до 8 символов. Попробуйте снова:")
         return
+
     data["users"][user_id]["pin"] = pin
     save_data(data)
+
     await message.answer(
         "✅ Пин-код установлен! Сессия активна 4 часа.\n\n"
         "📋 Доступные команды:\n"
@@ -534,20 +548,25 @@ async def process_new_pin(message: Message, state: FSMContext):
 async def process_pin(message: Message, state: FSMContext):
     pin = message.text.strip()
     user_id = str(message.from_user.id)
+
     if user_id == str(OWNER_ID):
         await message.answer("👑 Хозяин, вам не нужен пин-код. Просто напишите /start")
         await state.clear()
         return
+
     if user_id not in data["users"]:
         await message.answer("❌ Пользователь не найден. Напишите /start")
         await state.clear()
         return
+
     if data["users"][user_id]["pin"] != pin:
         await message.answer("❌ Неверный пин-код. Попробуйте снова:")
         return
+
     session_end = datetime.now() + timedelta(hours=4)
     data["users"][user_id]["session_end"] = session_end.isoformat()
     save_data(data)
+
     await message.answer(
         "✅ Сессия восстановлена!\n\n"
         "📋 Доступные команды:\n"
@@ -560,28 +579,35 @@ async def process_pin(message: Message, state: FSMContext):
 @dp.message(Command("invite"))
 async def create_invite_command(message: Message):
     user_id = str(message.from_user.id)
+
     if user_id == str(OWNER_ID):
         code = create_invite(int(user_id))
-        await message.answer(f"👑 Хозяин, инвайт-код создан: `{code}`\nДействует 4 часа.", parse_mode="Markdown")
+        await message.answer(f"👑 Хозяин, инвайт-код создан: {code}\nДействует 4 часа.", parse_mode="Markdown")
         return
+
     if user_id not in data["users"]:
         await message.answer("❌ Вы не зарегистрированы. Напишите /start")
         return
+
     if data["users"][user_id].get("invite_used", False):
         await message.answer("❌ Вы уже использовали свой шанс создать инвайт-код.")
         return
+
     if not is_session_active(int(user_id)):
         await message.answer("❌ Ваша сессия истекла. Напишите /start для восстановления.")
         return
+
     code = create_invite(int(user_id))
-    await message.answer(f"✅ Инвайт-код создан: `{code}`\nДействует 4 часа.", parse_mode="Markdown")
+    await message.answer(f"✅ Инвайт-код создан: {code}\nДействует 4 часа.", parse_mode="Markdown")
 
 @dp.message()
 async def handle_text(message: Message, state: FSMContext):
     user_id = str(message.from_user.id)
+
     if user_id not in data["users"] and user_id != str(OWNER_ID):
         await message.answer("❌ Вы не зарегистрированы. Напишите /start")
         return
+
     if user_id == str(OWNER_ID):
         pass
     elif not is_session_active(int(user_id)):
