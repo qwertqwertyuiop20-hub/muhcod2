@@ -175,23 +175,25 @@ ALL_CHARS = (
 )
 
 # =========================================================================
-# ШИФР v2:
+# ШИФР v3:
 #  1) Пулы MAIN_GLYPHS и GARBAGE_POOL объединяются и перемешиваются, затем
 #     делятся на "шифровальную" и "мусорную" зоны с намеренным перекрытием -
 #     часть символов из бывшего "мусорного" пула теперь участвует в
 #     построении реальных кодовых слов, и наоборот, часть бывших
-#     "шифровальных" символов используется как шум. Это не даёт атакующему
-#     просто отбросить символы одного пула как заведомый мусор.
-#  2) Каждый символ шифруется не одним глифом, а уникальной комбинацией из
-#     CODEWORD_LENGTH (5) глифов. У каждого символа есть VARIANTS_PER_CHAR
-#     разных кодовых слов (выбираются случайно при каждом шифровании), что
-#     резко увеличивает пространство комбинаций и устойчивость к частотному
-#     анализу по сравнению с шифром простой замены.
+#     "шифровальных" символов используется как шум.
+#  2) Каждый символ (включая пробел) шифруется уникальной комбинацией из
+#     CODEWORD_LENGTH (4) глифов. У каждого символа есть VARIANTS_PER_CHAR
+#     (20) разных кодовых слов, случайно выбираемых при каждом шифровании.
+#  3) Мусор может появляться не только МЕЖДУ кодовыми словами разных
+#     символов, но и ВНУТРИ самого кодового слова - между его отдельными
+#     глифами. Расшифровка поэтому ищет 4 "настоящих" глифа кодового слова
+#     не обязательно подряд, а с учётом того, что между ними могло
+#     затесаться до INTRA_GARBAGE_MAX мусорных символов.
 # =========================================================================
 
 MIX_SEED = 733221          # фиксированный seed -> карта стабильна между перезапусками бота
-CODEWORD_LENGTH = 5
-VARIANTS_PER_CHAR = 3
+CODEWORD_LENGTH = 4
+VARIANTS_PER_CHAR = 20
 CIPHER_SHARE = 0.60         # доля общего пула, отдаваемая под "шифровальную" зону
 OVERLAP_RATIO = 0.15        # доля намеренного перекрытия между зонами
 
@@ -209,8 +211,8 @@ CIPHER_POOL = _combined_glyphs[:_cipher_end]   # источник глифов �
 NOISE_POOL = _combined_glyphs[_noise_start:]   # источник глифов для мусора
 # символы в диапазоне [_noise_start:_cipher_end] встречаются в обоих пулах
 
-# Пробел теперь шифруется наравне со всеми остальными символами -
-# это скрывает границы слов и длину сообщения по "структуре" пробелов.
+# Пробел шифруется наравне со всеми остальными символами - это скрывает
+# границы слов и длину сообщения по "структуре" пробелов.
 char_list = list(ALL_CHARS) + [' ']
 
 ENCRYPTION_MAP = {}
@@ -230,11 +232,9 @@ for _ch in char_list:
     for _cw in _variants:
         DECRYPTION_MAP[_cw] = _ch
 
-# --- Мусор ---
-# Длина одной "порции" мусора теперь максимум 2 символа подряд.
-GARBAGE_MAX_RUN = 2
-# Вероятность того, что мусор будет вставлен в данном месте (иначе - пропуск).
-GARBAGE_INSERT_CHANCE = 0.45
+# --- Мусор между кодовыми словами ---
+GARBAGE_MAX_RUN = 2          # максимум мусорных символов подряд
+GARBAGE_INSERT_CHANCE = 0.45 # вероятность вставки мусора в данном месте
 
 def get_garbage_sequence():
     length = random.randint(1, GARBAGE_MAX_RUN)
@@ -246,22 +246,59 @@ def _maybe_garbage(result: list) -> None:
     if random.random() < GARBAGE_INSERT_CHANCE:
         result.append(get_garbage_sequence())
 
+# --- Мусор ВНУТРИ кодового слова (между его отдельными глифами) ---
+INTRA_GARBAGE_MAX = 2          # максимум мусорных символов между двумя глифами кодового слова
+INTRA_GARBAGE_CHANCE = 0.35    # вероятность вставки мусора в каждом внутреннем "зазоре"
+
+def _maybe_intra_garbage(result: list) -> None:
+    if random.random() < INTRA_GARBAGE_CHANCE:
+        length = random.randint(1, INTRA_GARBAGE_MAX)
+        result.append(''.join(random.choice(NOISE_POOL) for _ in range(length)))
+
 # --- Функции шифрования/дешифрования ---
 def encrypt_text(text: str) -> str:
     start_anchor = random.choice(ANCHOR_START_VARIANTS)
     end_anchor = random.choice(ANCHOR_END_VARIANTS)
     result = []
-    # мусор может появиться даже перед самым первым символом
-    _maybe_garbage(result)
+    _maybe_garbage(result)  # мусор может появиться даже перед самым первым символом
     for char in text:
         if char in ENCRYPTION_MAP:
             codeword = random.choice(ENCRYPTION_MAP[char])
-            result.append(''.join(codeword))
+            for idx, glyph in enumerate(codeword):
+                result.append(glyph)
+                if idx < len(codeword) - 1:
+                    _maybe_intra_garbage(result)  # мусор МЕЖДУ глифами одного кодового слова
         else:
             result.append(char)
-        # после каждого символа мусор добавляется не всегда - вероятностно
-        _maybe_garbage(result)
+        _maybe_garbage(result)  # мусор МЕЖДУ разными символами (как и раньше)
     return start_anchor + ''.join(result) + end_anchor
+
+def _try_match_codeword(body: str, i: int, n: int):
+    """Пытается собрать кодовое слово из 4 глифов, начиная с позиции i,
+    допуская до INTRA_GARBAGE_MAX "чужих" символов между каждой парой
+    настоящих глифов. Возвращает (символ, индекс_после_кодового_слова)
+    либо None, если совпадения не найдено."""
+    g1 = body[i]
+    for gap1 in range(0, INTRA_GARBAGE_MAX + 1):
+        pos2 = i + 1 + gap1
+        if pos2 >= n:
+            break
+        g2 = body[pos2]
+        for gap2 in range(0, INTRA_GARBAGE_MAX + 1):
+            pos3 = pos2 + 1 + gap2
+            if pos3 >= n:
+                break
+            g3 = body[pos3]
+            for gap3 in range(0, INTRA_GARBAGE_MAX + 1):
+                pos4 = pos3 + 1 + gap3
+                if pos4 >= n:
+                    break
+                g4 = body[pos4]
+                candidate = (g1, g2, g3, g4)
+                match = DECRYPTION_MAP.get(candidate)
+                if match is not None:
+                    return match, pos4 + 1
+    return None
 
 def decrypt_text(text: str) -> str:
     body = text[3:-3]
@@ -269,12 +306,12 @@ def decrypt_text(text: str) -> str:
     i = 0
     n = len(body)
     while i < n:
-        if i + CODEWORD_LENGTH <= n:
-            candidate = tuple(body[i:i + CODEWORD_LENGTH])
-            if candidate in DECRYPTION_MAP:
-                result.append(DECRYPTION_MAP[candidate])
-                i += CODEWORD_LENGTH
-                continue
+        matched = _try_match_codeword(body, i, n)
+        if matched is not None:
+            char, next_i = matched
+            result.append(char)
+            i = next_i
+            continue
         i += 1
     return ''.join(result)
 
