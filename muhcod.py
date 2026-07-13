@@ -138,17 +138,11 @@ MAIN_GLYPHS = [
 
 # Явно задаём каждый символ отдельно, включая ё и Ё
 ALL_CHARS_LIST = [
-    # Строчные русские
     'а','б','в','г','д','е','ё','ж','з','и','й','к','л','м','н','о','п','р','с','т','у','ф','х','ц','ч','ш','щ','ъ','ы','ь','э','ю','я',
-    # Заглавные русские
     'А','Б','В','Г','Д','Е','Ё','Ж','З','И','Й','К','Л','М','Н','О','П','Р','С','Т','У','Ф','Х','Ц','Ч','Ш','Щ','Ъ','Ы','Ь','Э','Ю','Я',
-    # Строчные английские
     'a','b','c','d','e','f','g','h','i','j','k','l','m','n','o','p','q','r','s','t','u','v','w','x','y','z',
-    # Заглавные английские
     'A','B','C','D','E','F','G','H','I','J','K','L','M','N','O','P','Q','R','S','T','U','V','W','X','Y','Z',
-    # Цифры
     '0','1','2','3','4','5','6','7','8','9',
-    # Спецсимволы
     '.',',','!','?',':',';','(',')','[',']','{','}','\'','"','-','_','=','+','*','/','\\','|','@','#','$','%','^','&','~',
 ]
 
@@ -275,7 +269,6 @@ def encrypt_text(text: str) -> str:
                 if idx < len(codeword) - 1:
                     _maybe_intra_garbage(result)
         else:
-            # Символ не в таблице - оставляем как есть
             result.append(char)
         _maybe_garbage(result)
     return start_anchor + ''.join(result) + end_anchor
@@ -309,13 +302,10 @@ def decrypt_text(text: str) -> str:
     i = 0
     n = len(body)
     while i < n:
-        # Проверяем, не является ли текущий символ "обычным" (не из пула шифра)
         if body[i] not in CIPHER_POOL and body[i] not in NOISE_POOL:
-            # Это обычный символ, который не был зашифрован - добавляем как есть
             result.append(body[i])
             i += 1
             continue
-        
         matched = _try_match_codeword(body, i, n)
         if matched is not None:
             char, next_i = matched
@@ -493,7 +483,7 @@ async def process_invite(message: Message, state: FSMContext):
 @dp.message(InviteStates.waiting_for_new_pin)
 async def process_new_pin(message: Message, state: FSMContext):
     pin = message.text.strip()
-    user_id = str(message.from.user.id)
+    user_id = str(message.from_user.id)
 
     if user_id == str(OWNER_ID):
         await message.answer("👑 Хозяин, вы уже зарегистрированы.")
@@ -519,7 +509,7 @@ async def process_new_pin(message: Message, state: FSMContext):
 @dp.message(InviteStates.waiting_for_pin)
 async def process_pin(message: Message, state: FSMContext):
     pin = message.text.strip()
-    user_id = str(message.from.user.id)
+    user_id = str(message.from_user.id)
 
     if user_id == str(OWNER_ID):
         await message.answer("👑 Хозяин, вам не нужен пин-код. Просто напишите /start")
@@ -593,7 +583,6 @@ async def handle_text(message: Message, state: FSMContext):
     if is_encrypted_text(text):
         try:
             decrypted = decrypt_text(text)
-            # Проверка на пустой результат
             if not decrypted or not decrypted.strip():
                 await message.answer("⚠️ Результат расшифровки пуст. Возможно, сообщение повреждено или не является зашифрованным.")
             else:
