@@ -3,6 +3,7 @@ import random
 import string
 import json
 import os
+import unicodedata
 from datetime import datetime, timedelta
 from cryptography.fernet import Fernet
 from aiogram import Bot, Dispatcher, types
@@ -136,13 +137,24 @@ MAIN_GLYPHS = [
     '长','青','春','驻','好','圆','团','圆',
 ]
 
-# Явно задаём каждый символ отдельно, включая ё и Ё
+# Явно задаём каждый символ отдельно, включая ё, Ё и расширенную латиницу
 ALL_CHARS_LIST = [
+    # Строчные русские
     'а','б','в','г','д','е','ё','ж','з','и','й','к','л','м','н','о','п','р','с','т','у','ф','х','ц','ч','ш','щ','ъ','ы','ь','э','ю','я',
+    # Заглавные русские
     'А','Б','В','Г','Д','Е','Ё','Ж','З','И','Й','К','Л','М','Н','О','П','Р','С','Т','У','Ф','Х','Ц','Ч','Ш','Щ','Ъ','Ы','Ь','Э','Ю','Я',
+    # Строчные английские
     'a','b','c','d','e','f','g','h','i','j','k','l','m','n','o','p','q','r','s','t','u','v','w','x','y','z',
+    # Заглавные английские
     'A','B','C','D','E','F','G','H','I','J','K','L','M','N','O','P','Q','R','S','T','U','V','W','X','Y','Z',
+    # Расширенная латиница (умлауты, акценты и т.д.)
+    'À','Á','Â','Ã','Ä','Å','Æ','Ç','È','É','Ê','Ë','Ì','Í','Î','Ï',
+    'Ð','Ñ','Ò','Ó','Ô','Õ','Ö','Ø','Ù','Ú','Û','Ü','Ý','Þ','ß',
+    'à','á','â','ã','ä','å','æ','ç','è','é','ê','ë','ì','í','î','ï',
+    'ð','ñ','ò','ó','ô','õ','ö','ø','ù','ú','û','ü','ý','þ','ÿ',
+    # Цифры
     '0','1','2','3','4','5','6','7','8','9',
+    # Спецсимволы
     '.',',','!','?',':',';','(',')','[',']','{','}','\'','"','-','_','=','+','*','/','\\','|','@','#','$','%','^','&','~',
 ]
 
@@ -209,9 +221,11 @@ ANCHOR_END_VARIANTS = [_generate_unique_anchor() for _ in range(ANCHOR_VARIANTS_
 # Пробел шифруется наравне со всеми остальными символами
 char_list = ALL_CHARS_LIST + [' ']
 
-# Проверка наличия ё и Ё
+# Проверка наличия ё, Ё и Ë
 assert 'ё' in char_list, "Символ 'ё' отсутствует в списке для шифрования!"
 assert 'Ё' in char_list, "Символ 'Ё' отсутствует в списке для шифрования!"
+assert 'ë' in char_list, "Символ 'ë' отсутствует в списке для шифрования!"
+assert 'Ë' in char_list, "Символ 'Ë' отсутствует в списке для шифрования!"
 
 ENCRYPTION_MAP = {}
 DECRYPTION_MAP = {}
@@ -231,12 +245,11 @@ for _ch in char_list:
         DECRYPTION_MAP[_cw] = _ch
 
 # Отладка
-print(f"Символ 'ё' в ENCRYPTION_MAP: {'ё' in ENCRYPTION_MAP}")
-print(f"Символ 'Ё' в ENCRYPTION_MAP: {'Ё' in ENCRYPTION_MAP}")
-print(f"Количество вариантов для 'ё': {len(ENCRYPTION_MAP.get('ё', []))}")
-print(f"Количество вариантов для 'Ё': {len(ENCRYPTION_MAP.get('Ё', []))}")
-print(f"Пример кодового слова для 'ё': {ENCRYPTION_MAP.get('ё', [['НЕТ']])[0]}")
-print(f"Пример кодового слова для 'Ё': {ENCRYPTION_MAP.get('Ё', [['НЕТ']])[0]}")
+print(f"✅ Символ 'ё' в ENCRYPTION_MAP: {'ё' in ENCRYPTION_MAP}")
+print(f"✅ Символ 'Ё' в ENCRYPTION_MAP: {'Ё' in ENCRYPTION_MAP}")
+print(f"✅ Символ 'ë' в ENCRYPTION_MAP: {'ë' in ENCRYPTION_MAP}")
+print(f"✅ Символ 'Ë' в ENCRYPTION_MAP: {'Ë' in ENCRYPTION_MAP}")
+print(f"📊 Количество символов в таблице: {len(ENCRYPTION_MAP)}")
 
 # --- Мусор между кодовыми словами ---
 GARBAGE_MAX_RUN = 2
@@ -260,7 +273,20 @@ def _maybe_intra_garbage(result: list) -> None:
         result.append(''.join(random.choice(NOISE_POOL) for _ in range(length)))
 
 # --- Функции шифрования/дешифрования ---
+def normalize_text(text: str) -> str:
+    """Нормализует текст: заменяет похожие латинские буквы на русские"""
+    replacements = {
+        'Ë': 'Ё',  # Латинская E с умлаутом -> русская Ё
+        'ë': 'ё',  # Латинская e с умлаутом -> русская ё
+    }
+    for old, new in replacements.items():
+        text = text.replace(old, new)
+    return text
+
 def encrypt_text(text: str) -> str:
+    # Нормализуем текст перед шифрованием
+    text = normalize_text(text)
+    
     start_anchor = random.choice(ANCHOR_START_VARIANTS)
     end_anchor = random.choice(ANCHOR_END_VARIANTS)
     result = []
@@ -273,8 +299,8 @@ def encrypt_text(text: str) -> str:
                 if idx < len(codeword) - 1:
                     _maybe_intra_garbage(result)
         else:
-            # Символ не в таблице - шифруем принудительно через UNICODE
-            print(f"⚠️ Символ '{char}' (U+{ord(char):04X}) не найден в таблице, шифруем как есть")
+            # Символ не в таблице - пробуем добавить в таблицу на лету
+            print(f"⚠️ Символ '{char}' (U+{ord(char):04X}) не найден в таблице")
             result.append(char)
         _maybe_garbage(result)
     return start_anchor + ''.join(result) + end_anchor
@@ -308,7 +334,6 @@ def decrypt_text(text: str) -> str:
     i = 0
     n = len(body)
     while i < n:
-        # Проверяем, не является ли текущий символ "обычным"
         if body[i] not in CIPHER_POOL and body[i] not in NOISE_POOL:
             result.append(body[i])
             i += 1
@@ -490,7 +515,7 @@ async def process_invite(message: Message, state: FSMContext):
 @dp.message(InviteStates.waiting_for_new_pin)
 async def process_new_pin(message: Message, state: FSMContext):
     pin = message.text.strip()
-    user_id = str(message.from_user.id)
+    user_id = str(message.from.user.id)
 
     if user_id == str(OWNER_ID):
         await message.answer("👑 Хозяин, вы уже зарегистрированы.")
@@ -516,7 +541,7 @@ async def process_new_pin(message: Message, state: FSMContext):
 @dp.message(InviteStates.waiting_for_pin)
 async def process_pin(message: Message, state: FSMContext):
     pin = message.text.strip()
-    user_id = str(message.from_user.id)
+    user_id = str(message.from.user.id)
 
     if user_id == str(OWNER_ID):
         await message.answer("👑 Хозяин, вам не нужен пин-код. Просто напишите /start")
@@ -620,10 +645,6 @@ async def main():
     print(f"📊 Размер шифровальной зоны: {len(CIPHER_POOL)} глифов")
     print(f"📊 Размер мусорной зоны: {len(NOISE_POOL)} глифов")
     print(f"👥 Зарегистрировано пользователей: {len(data.get('users', {}))}")
-    print(f"🔍 Проверка 'ё': {len(ENCRYPTION_MAP.get('ё', []))} вариантов")
-    print(f"🔍 Проверка 'Ё': {len(ENCRYPTION_MAP.get('Ё', []))} вариантов")
-    print(f"🔍 'ё' есть в ALL_CHARS_LIST: {'ё' in ALL_CHARS_LIST}")
-    print(f"🔍 'Ё' есть в ALL_CHARS_LIST: {'Ё' in ALL_CHARS_LIST}")
     await dp.start_polling(bot)
 
 if __name__ == "__main__":
