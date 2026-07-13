@@ -65,27 +65,10 @@ class InviteStates(StatesGroup):
     waiting_for_pin = State()
     waiting_for_new_pin = State()
 
-# --- ЯКОРЯ (начало/конец зашифрованного сообщения) ---
-ANCHOR_START_VARIANTS = [
-    '⅀∼∮',
-    '∴≃⊂',
-    '∯⊊∰',
-    '∫∮∼',
-    '∑⊆≃',
-    '∂∆∇',
-    '√π∞',
-    '≠≤≥'
-]
-ANCHOR_END_VARIANTS = [
-    '∱∲∳',
-    '≄≇≈',
-    '⊃⊇⊋',
-    '⋱⋮⋯',
-    '∰∮∯',
-    '≃⊇∮',
-    '±÷×',
-    '°•·'
-]
+# Примечание: якоря начала/конца зашифрованного сообщения (ANCHOR_START_VARIANTS,
+# ANCHOR_END_VARIANTS) генерируются ниже, после того как определены основные
+# пулы глифов, - им нужно опираться на комбинированный пул, чтобы не
+# пересекаться с ним (см. блок "ЯКОРЯ ИЗ КИТАЙСКО-ЯПОНСКИХ ИЕРОГЛИФОВ").
 
 # --- Мусорные символы (пул A, "сырьё" для шума) ---
 GARBAGE_POOL = [
@@ -210,6 +193,57 @@ _noise_start = max(_cipher_end - _overlap_len, 0)
 CIPHER_POOL = _combined_glyphs[:_cipher_end]   # источник глифов для кодовых слов
 NOISE_POOL = _combined_glyphs[_noise_start:]   # источник глифов для мусора
 # символы в диапазоне [_noise_start:_cipher_end] встречаются в обоих пулах
+
+# =========================================================================
+# ЯКОРЯ ИЗ КИТАЙСКО-ЯПОНСКИХ ИЕРОГЛИФОВ
+# Раньше якоря были из математических символов (⅀∼∮ и т.п.) - слишком
+# заметный, нетипичный "почерк". Теперь якоря - это 3-символьные
+# последовательности настоящих иероглифов CJK Unified Ideographs
+# (U+4E00-U+9FFF) - тот же блок Unicode одновременно используется как
+# китайские ханьцзы и как японские кандзи. Символы для якорей берутся
+# из отдельного пула, специально НЕ пересекающегося с CIPHER_POOL/NOISE_POOL,
+# чтобы якоря нельзя было спутать с телом шифра. 20 вариантов начала и
+# 20 вариантов конца, все взаимно уникальные, генерируются детерминированно
+# (фиксированный seed), чтобы карта была стабильна между перезапусками бота.
+# =========================================================================
+
+ANCHOR_SEED = 991137
+ANCHOR_LENGTH = 3
+ANCHOR_VARIANTS_COUNT = 20
+_CJK_BLOCK_START = 0x4E00
+_CJK_BLOCK_END = 0x9FFF  # основной блок CJK Unified Ideographs (~20 900 символов)
+
+_anchor_rng = random.Random(ANCHOR_SEED)
+_existing_glyphs = set(_combined_glyphs)
+
+def _build_anchor_glyph_pool(size: int = 400) -> list:
+    """Набирает `size` уникальных иероглифов из блока CJK Unified Ideographs,
+    которые ещё не используются в CIPHER_POOL/NOISE_POOL - так якоря
+    гарантированно не пересекаются с телом шифра."""
+    codepoints = list(range(_CJK_BLOCK_START, _CJK_BLOCK_END + 1))
+    _anchor_rng.shuffle(codepoints)
+    pool = []
+    for cp in codepoints:
+        glyph = chr(cp)
+        if glyph not in _existing_glyphs:
+            pool.append(glyph)
+            if len(pool) >= size:
+                break
+    return pool
+
+_ANCHOR_GLYPH_POOL = _build_anchor_glyph_pool()
+
+_used_anchors = set()
+
+def _generate_unique_anchor() -> str:
+    while True:
+        anchor = ''.join(_anchor_rng.choice(_ANCHOR_GLYPH_POOL) for _ in range(ANCHOR_LENGTH))
+        if anchor not in _used_anchors:
+            _used_anchors.add(anchor)
+            return anchor
+
+ANCHOR_START_VARIANTS = [_generate_unique_anchor() for _ in range(ANCHOR_VARIANTS_COUNT)]
+ANCHOR_END_VARIANTS = [_generate_unique_anchor() for _ in range(ANCHOR_VARIANTS_COUNT)]
 
 # Пробел шифруется наравне со всеми остальными символами - это скрывает
 # границы слов и длину сообщения по "структуре" пробелов.
