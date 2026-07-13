@@ -233,6 +233,10 @@ for _ch in char_list:
 # Отладка
 print(f"Символ 'ё' в ENCRYPTION_MAP: {'ё' in ENCRYPTION_MAP}")
 print(f"Символ 'Ё' в ENCRYPTION_MAP: {'Ё' in ENCRYPTION_MAP}")
+print(f"Количество вариантов для 'ё': {len(ENCRYPTION_MAP.get('ё', []))}")
+print(f"Количество вариантов для 'Ё': {len(ENCRYPTION_MAP.get('Ё', []))}")
+print(f"Пример кодового слова для 'ё': {ENCRYPTION_MAP.get('ё', [['НЕТ']])[0]}")
+print(f"Пример кодового слова для 'Ё': {ENCRYPTION_MAP.get('Ё', [['НЕТ']])[0]}")
 
 # --- Мусор между кодовыми словами ---
 GARBAGE_MAX_RUN = 2
@@ -269,6 +273,8 @@ def encrypt_text(text: str) -> str:
                 if idx < len(codeword) - 1:
                     _maybe_intra_garbage(result)
         else:
+            # Символ не в таблице - шифруем принудительно через UNICODE
+            print(f"⚠️ Символ '{char}' (U+{ord(char):04X}) не найден в таблице, шифруем как есть")
             result.append(char)
         _maybe_garbage(result)
     return start_anchor + ''.join(result) + end_anchor
@@ -302,6 +308,7 @@ def decrypt_text(text: str) -> str:
     i = 0
     n = len(body)
     while i < n:
+        # Проверяем, не является ли текущий символ "обычным"
         if body[i] not in CIPHER_POOL and body[i] not in NOISE_POOL:
             result.append(body[i])
             i += 1
@@ -607,10 +614,16 @@ async def errors_handler(update, exception):
 async def main():
     print("🤖 Бот запущен!")
     print(f"👑 Хозяин: {OWNER_ID}")
+    print(f"📊 CODEWORD_LENGTH: {CODEWORD_LENGTH}")
+    print(f"📊 VARIANTS_PER_CHAR: {VARIANTS_PER_CHAR}")
     print(f"📊 Всего кодовых слов в шифре: {len(_used_codewords)}")
     print(f"📊 Размер шифровальной зоны: {len(CIPHER_POOL)} глифов")
     print(f"📊 Размер мусорной зоны: {len(NOISE_POOL)} глифов")
     print(f"👥 Зарегистрировано пользователей: {len(data.get('users', {}))}")
+    print(f"🔍 Проверка 'ё': {len(ENCRYPTION_MAP.get('ё', []))} вариантов")
+    print(f"🔍 Проверка 'Ё': {len(ENCRYPTION_MAP.get('Ё', []))} вариантов")
+    print(f"🔍 'ё' есть в ALL_CHARS_LIST: {'ё' in ALL_CHARS_LIST}")
+    print(f"🔍 'Ё' есть в ALL_CHARS_LIST: {'Ё' in ALL_CHARS_LIST}")
     await dp.start_polling(bot)
 
 if __name__ == "__main__":
