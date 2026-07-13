@@ -13,11 +13,6 @@ from aiogram.fsm.state import State, StatesGroup
 from aiogram.fsm.storage.memory import MemoryStorage
 
 # --- КОНФИГУРАЦИЯ ---
-# Токен и ID владельца больше НЕ хранятся в коде - их нужно задать как
-# переменные окружения. На Railway: Project -> Variables -> добавить
-# BOT_TOKEN и OWNER_ID. Локально можно создать файл .env (см. README ниже
-# в комментариях) и использовать python-dotenv, либо экспортировать
-# переменные в терминале перед запуском.
 BOT_TOKEN = os.environ.get("BOT_TOKEN")
 _owner_id_raw = os.environ.get("OWNER_ID")
 if not BOT_TOKEN:
@@ -62,11 +57,6 @@ class InviteStates(StatesGroup):
     waiting_for_invite = State()
     waiting_for_pin = State()
     waiting_for_new_pin = State()
-
-# Примечание: якоря начала/конца зашифрованного сообщения (ANCHOR_START_VARIANTS,
-# ANCHOR_END_VARIANTS) генерируются ниже, после того как определены основные
-# пулы глифов, - им нужно опираться на комбинированный пул, чтобы не
-# пересекаться с ним (см. блок "ЯКОРЯ ИЗ КИТАЙСКО-ЯПОНСКИХ ИЕРОГЛИФОВ").
 
 # --- Мусорные символы (пул A, "сырьё" для шума) ---
 GARBAGE_POOL = [
@@ -146,40 +136,33 @@ MAIN_GLYPHS = [
     '长','青','春','驻','好','圆','团','圆',
 ]
 
-# ИСПРАВЛЕНИЕ: Явно перечисляем все символы, включая ё и Ё
-ALL_CHARS = (
-    'абвгдеёжзийклмнопрстуфхцчшщъыьэюя'
-    'АБВГДЕЁЖЗИЙКЛМНОПРСТУФХЦЧШЩЪЫЬЭЮЯ'
-    'abcdefghijklmnopqrstuvwxyz'
-    'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
-    '0123456789'
-    '.,!?:;()[]{}\'"-_=+*/\\|@#$%^&~'
-)
+# Явно задаём каждый символ отдельно, включая ё и Ё
+ALL_CHARS_LIST = [
+    # Строчные русские
+    'а','б','в','г','д','е','ё','ж','з','и','й','к','л','м','н','о','п','р','с','т','у','ф','х','ц','ч','ш','щ','ъ','ы','ь','э','ю','я',
+    # Заглавные русские
+    'А','Б','В','Г','Д','Е','Ё','Ж','З','И','Й','К','Л','М','Н','О','П','Р','С','Т','У','Ф','Х','Ц','Ч','Ш','Щ','Ъ','Ы','Ь','Э','Ю','Я',
+    # Строчные английские
+    'a','b','c','d','e','f','g','h','i','j','k','l','m','n','o','p','q','r','s','t','u','v','w','x','y','z',
+    # Заглавные английские
+    'A','B','C','D','E','F','G','H','I','J','K','L','M','N','O','P','Q','R','S','T','U','V','W','X','Y','Z',
+    # Цифры
+    '0','1','2','3','4','5','6','7','8','9',
+    # Спецсимволы
+    '.',',','!','?',':',';','(',')','[',']','{','}','\'','"','-','_','=','+','*','/','\\','|','@','#','$','%','^','&','~',
+]
 
 # =========================================================================
-# ШИФР v3:
-# 1) Пулы MAIN_GLYPHS и GARBAGE_POOL объединяются и перемешиваются, затем
-# делятся на "шифровальную" и "мусорную" зоны с намеренным перекрытием -
-# часть символов из бывшего "мусорного" пула теперь участвует в
-# построении реальных кодовых слов, и наоборот, часть бывших
-# "шифровальных" символов используется как шум.
-# 2) Каждый символ (включая пробел) шифруется уникальной комбинацией из
-# CODEWORD_LENGTH (4) глифов. У каждого символа есть VARIANTS_PER_CHAR
-# (20) разных кодовых слов, случайно выбираемых при каждом шифровании.
-# 3) Мусор может появляться не только МЕЖДУ кодовыми словами разных
-# символов, но и ВНУТРИ самого кодового слова - между его отдельными
-# глифами. Расшифровка поэтому ищет 4 "настоящих" глифа кодового слова
-# не обязательно подряд, а с учётом того, что между ними могло
-# затесаться до INTRA_GARBAGE_MAX мусорных символов.
+# ШИФР v3
 # =========================================================================
-MIX_SEED = 733221  # фиксированный seed -> карта стабильна между перезапусками бота
+MIX_SEED = 733221
 CODEWORD_LENGTH = 4
 VARIANTS_PER_CHAR = 20
-CIPHER_SHARE = 0.60  # доля общего пула, отдаваемая под "шифровальную" зону
-OVERLAP_RATIO = 0.15  # доля намеренного перекрытия между зонами
+CIPHER_SHARE = 0.60
+OVERLAP_RATIO = 0.15
 
 _map_rng = random.Random(MIX_SEED)
-_combined_glyphs = list(dict.fromkeys(MAIN_GLYPHS + GARBAGE_POOL))  # dedup, порядок сохранён
+_combined_glyphs = list(dict.fromkeys(MAIN_GLYPHS + GARBAGE_POOL))
 _map_rng.shuffle(_combined_glyphs)
 
 _n = len(_combined_glyphs)
@@ -187,36 +170,23 @@ _cipher_end = int(_n * CIPHER_SHARE)
 _overlap_len = int(_n * OVERLAP_RATIO)
 _noise_start = max(_cipher_end - _overlap_len, 0)
 
-CIPHER_POOL = _combined_glyphs[:_cipher_end]  # источник глифов для кодовых слов
-NOISE_POOL = _combined_glyphs[_noise_start:]  # источник глифов для мусора
-# символы в диапазоне [_noise_start:_cipher_end] встречаются в обоих пулах
+CIPHER_POOL = _combined_glyphs[:_cipher_end]
+NOISE_POOL = _combined_glyphs[_noise_start:]
 
 # =========================================================================
 # ЯКОРЯ ИЗ КИТАЙСКО-ЯПОНСКИХ ИЕРОГЛИФОВ
-# Раньше якоря были из математических символов (⅀∼∮ и т.п.) - слишком
-# заметный, нетипичный "почерк". Теперь якоря - это 3-символьные
-# последовательности настоящих иероглифов CJK Unified Ideographs
-# (U+4E00-U+9FFF) - тот же блок Unicode одновременно используется как
-# китайские ханьцзы и как японские кандзи. Символы для якорей берутся
-# из отдельного пула, специально НЕ пересекающегося с CIPHER_POOL/NOISE_POOL,
-# чтобы якоря нельзя было спутать с телом шифра. 20 вариантов начала и
-# 20 вариантов конца, все взаимно уникальные, генерируются детерминированно
-# (фиксированный seed), чтобы карта была стабильна между перезапусками бота.
 # =========================================================================
 ANCHOR_SEED = 991137
 ANCHOR_LENGTH = 3
 ANCHOR_VARIANTS_COUNT = 20
 
 _CJK_BLOCK_START = 0x4E00
-_CJK_BLOCK_END = 0x9FFF  # основной блок CJK Unified Ideographs (~20 900 символов)
+_CJK_BLOCK_END = 0x9FFF
 
 _anchor_rng = random.Random(ANCHOR_SEED)
 _existing_glyphs = set(_combined_glyphs)
 
 def _build_anchor_glyph_pool(size: int = 400) -> list:
-    """Набирает size уникальных иероглифов из блока CJK Unified Ideographs,
-    которые ещё не используются в CIPHER_POOL/NOISE_POOL - так якоря
-    гарантированно не пересекаются с телом шифра."""
     codepoints = list(range(_CJK_BLOCK_START, _CJK_BLOCK_END + 1))
     _anchor_rng.shuffle(codepoints)
     pool = []
@@ -242,16 +212,12 @@ def _generate_unique_anchor() -> str:
 ANCHOR_START_VARIANTS = [_generate_unique_anchor() for _ in range(ANCHOR_VARIANTS_COUNT)]
 ANCHOR_END_VARIANTS = [_generate_unique_anchor() for _ in range(ANCHOR_VARIANTS_COUNT)]
 
-# Пробел шифруется наравне со всеми остальными символами - это скрывает
-# границы слов и длину сообщения по "структуре" пробелов.
-# ИСПРАВЛЕНИЕ: Используем итерацию по строке для корректной обработки всех символов
-char_list = [ch for ch in ALL_CHARS] + [' ']
+# Пробел шифруется наравне со всеми остальными символами
+char_list = ALL_CHARS_LIST + [' ']
 
 # Проверка наличия ё и Ё
-if 'ё' not in char_list:
-    raise RuntimeError("Символ 'ё' отсутствует в списке для шифрования!")
-if 'Ё' not in char_list:
-    raise RuntimeError("Символ 'Ё' отсутствует в списке для шифрования!")
+assert 'ё' in char_list, "Символ 'ё' отсутствует в списке для шифрования!"
+assert 'Ё' in char_list, "Символ 'Ё' отсутствует в списке для шифрования!"
 
 ENCRYPTION_MAP = {}
 DECRYPTION_MAP = {}
@@ -270,23 +236,25 @@ for _ch in char_list:
     for _cw in _variants:
         DECRYPTION_MAP[_cw] = _ch
 
+# Отладка
+print(f"Символ 'ё' в ENCRYPTION_MAP: {'ё' in ENCRYPTION_MAP}")
+print(f"Символ 'Ё' в ENCRYPTION_MAP: {'Ё' in ENCRYPTION_MAP}")
+
 # --- Мусор между кодовыми словами ---
-GARBAGE_MAX_RUN = 2  # максимум мусорных символов подряд
-GARBAGE_INSERT_CHANCE = 0.45  # вероятность вставки мусора в данном месте
+GARBAGE_MAX_RUN = 2
+GARBAGE_INSERT_CHANCE = 0.45
 
 def get_garbage_sequence():
     length = random.randint(1, GARBAGE_MAX_RUN)
     return ''.join(random.choice(NOISE_POOL) for _ in range(length))
 
 def _maybe_garbage(result: list) -> None:
-    """С вероятностью GARBAGE_INSERT_CHANCE добавляет 1-2 мусорных символа.
-    Иначе не добавляет ничего - мусор становится нерегулярным и непредсказуемым."""
     if random.random() < GARBAGE_INSERT_CHANCE:
         result.append(get_garbage_sequence())
 
-# --- Мусор ВНУТРИ кодового слова (между его отдельными глифами) ---
-INTRA_GARBAGE_MAX = 2  # максимум мусорных символов между двумя глифами кодового слова
-INTRA_GARBAGE_CHANCE = 0.35  # вероятность вставки мусора в каждом внутреннем "зазоре"
+# --- Мусор ВНУТРИ кодового слова ---
+INTRA_GARBAGE_MAX = 2
+INTRA_GARBAGE_CHANCE = 0.35
 
 def _maybe_intra_garbage(result: list) -> None:
     if random.random() < INTRA_GARBAGE_CHANCE:
@@ -298,24 +266,21 @@ def encrypt_text(text: str) -> str:
     start_anchor = random.choice(ANCHOR_START_VARIANTS)
     end_anchor = random.choice(ANCHOR_END_VARIANTS)
     result = []
-    _maybe_garbage(result)  # мусор может появиться даже перед самым первым символом
+    _maybe_garbage(result)
     for char in text:
         if char in ENCRYPTION_MAP:
             codeword = random.choice(ENCRYPTION_MAP[char])
             for idx, glyph in enumerate(codeword):
                 result.append(glyph)
                 if idx < len(codeword) - 1:
-                    _maybe_intra_garbage(result)  # мусор МЕЖДУ глифами одного кодового слова
+                    _maybe_intra_garbage(result)
         else:
+            # Если символ не найден в карте, оставляем как есть
             result.append(char)
-        _maybe_garbage(result)  # мусор МЕЖДУ разными символами (как и раньше)
+        _maybe_garbage(result)
     return start_anchor + ''.join(result) + end_anchor
 
 def _try_match_codeword(body: str, i: int, n: int):
-    """Пытается собрать кодовое слово из 4 глифов, начиная с позиции i,
-    допуская до INTRA_GARBAGE_MAX "чужих" символов между каждой парой
-    настоящих глифов. Возвращает (символ, индекс_после_кодового_слова)
-    либо None, если совпадения не найдено."""
     g1 = body[i]
     for gap1 in range(0, INTRA_GARBAGE_MAX + 1):
         pos2 = i + 1 + gap1
