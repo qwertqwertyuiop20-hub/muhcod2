@@ -3,7 +3,6 @@ import random
 import string
 import json
 import os
-import unicodedata
 from datetime import datetime, timedelta
 from cryptography.fernet import Fernet
 from aiogram import Bot, Dispatcher, types
@@ -59,7 +58,7 @@ class InviteStates(StatesGroup):
     waiting_for_pin = State()
     waiting_for_new_pin = State()
 
-# --- Мусорные символы (пул A, "сырьё" для шума) ---
+# --- Мусорные символы (пул A) ---
 GARBAGE_POOL = [
     '⺀','⺁','⺂','⺃','⺄','⺅','⺆','⺇','⺈','⺉',
     '⺊','⺋','⺌','⺍','⺎','⺏','⺐','⺑','⺒','⺓',
@@ -78,7 +77,7 @@ GARBAGE_POOL = [
     '㐞','㐟','㐠','㐡','㐢','㐣','㐤','㐥','㐦','㐧',
 ]
 
-# --- Основной пул иероглифов (пул B, "сырьё" для шифра) ---
+# --- Основной пул иероглифов (пул B) ---
 MAIN_GLYPHS = [
     'あ','い','う','え','お','か','き','く','け','こ',
     'さ','し','す','せ','そ','た','ち','つ','て','と',
@@ -137,24 +136,17 @@ MAIN_GLYPHS = [
     '长','青','春','驻','好','圆','团','圆',
 ]
 
-# Явно задаём каждый символ отдельно, включая ё, Ё и расширенную латиницу
+# Все символы для шифрования
 ALL_CHARS_LIST = [
-    # Строчные русские
     'а','б','в','г','д','е','ё','ж','з','и','й','к','л','м','н','о','п','р','с','т','у','ф','х','ц','ч','ш','щ','ъ','ы','ь','э','ю','я',
-    # Заглавные русские
     'А','Б','В','Г','Д','Е','Ё','Ж','З','И','Й','К','Л','М','Н','О','П','Р','С','Т','У','Ф','Х','Ц','Ч','Ш','Щ','Ъ','Ы','Ь','Э','Ю','Я',
-    # Строчные английские
     'a','b','c','d','e','f','g','h','i','j','k','l','m','n','o','p','q','r','s','t','u','v','w','x','y','z',
-    # Заглавные английские
     'A','B','C','D','E','F','G','H','I','J','K','L','M','N','O','P','Q','R','S','T','U','V','W','X','Y','Z',
-    # Расширенная латиница (умлауты, акценты и т.д.)
     'À','Á','Â','Ã','Ä','Å','Æ','Ç','È','É','Ê','Ë','Ì','Í','Î','Ï',
     'Ð','Ñ','Ò','Ó','Ô','Õ','Ö','Ø','Ù','Ú','Û','Ü','Ý','Þ','ß',
     'à','á','â','ã','ä','å','æ','ç','è','é','ê','ë','ì','í','î','ï',
     'ð','ñ','ò','ó','ô','õ','ö','ø','ù','ú','û','ü','ý','þ','ÿ',
-    # Цифры
     '0','1','2','3','4','5','6','7','8','9',
-    # Спецсимволы
     '.',',','!','?',':',';','(',')','[',']','{','}','\'','"','-','_','=','+','*','/','\\','|','@','#','$','%','^','&','~',
 ]
 
@@ -180,7 +172,7 @@ CIPHER_POOL = _combined_glyphs[:_cipher_end]
 NOISE_POOL = _combined_glyphs[_noise_start:]
 
 # =========================================================================
-# ЯКОРЯ ИЗ КИТАЙСКО-ЯПОНСКИХ ИЕРОГЛИФОВ
+# ЯКОРЯ
 # =========================================================================
 ANCHOR_SEED = 991137
 ANCHOR_LENGTH = 3
@@ -192,7 +184,7 @@ _CJK_BLOCK_END = 0x9FFF
 _anchor_rng = random.Random(ANCHOR_SEED)
 _existing_glyphs = set(_combined_glyphs)
 
-def _build_anchor_glyph_pool(size: int = 400) -> list:
+def _build_anchor_glyph_pool(size=400):
     codepoints = list(range(_CJK_BLOCK_START, _CJK_BLOCK_END + 1))
     _anchor_rng.shuffle(codepoints)
     pool = []
@@ -205,10 +197,9 @@ def _build_anchor_glyph_pool(size: int = 400) -> list:
     return pool
 
 _ANCHOR_GLYPH_POOL = _build_anchor_glyph_pool()
-
 _used_anchors = set()
 
-def _generate_unique_anchor() -> str:
+def _generate_unique_anchor():
     while True:
         anchor = ''.join(_anchor_rng.choice(_ANCHOR_GLYPH_POOL) for _ in range(ANCHOR_LENGTH))
         if anchor not in _used_anchors:
@@ -218,14 +209,8 @@ def _generate_unique_anchor() -> str:
 ANCHOR_START_VARIANTS = [_generate_unique_anchor() for _ in range(ANCHOR_VARIANTS_COUNT)]
 ANCHOR_END_VARIANTS = [_generate_unique_anchor() for _ in range(ANCHOR_VARIANTS_COUNT)]
 
-# Пробел шифруется наравне со всеми остальными символами
+# Создание таблиц шифрования
 char_list = ALL_CHARS_LIST + [' ']
-
-# Проверка наличия ё, Ё и Ë
-assert 'ё' in char_list, "Символ 'ё' отсутствует в списке для шифрования!"
-assert 'Ё' in char_list, "Символ 'Ё' отсутствует в списке для шифрования!"
-assert 'ë' in char_list, "Символ 'ë' отсутствует в списке для шифрования!"
-assert 'Ë' in char_list, "Символ 'Ë' отсутствует в списке для шифрования!"
 
 ENCRYPTION_MAP = {}
 DECRYPTION_MAP = {}
@@ -244,49 +229,34 @@ for _ch in char_list:
     for _cw in _variants:
         DECRYPTION_MAP[_cw] = _ch
 
-# Отладка
-print(f"✅ Символ 'ё' в ENCRYPTION_MAP: {'ё' in ENCRYPTION_MAP}")
-print(f"✅ Символ 'Ё' в ENCRYPTION_MAP: {'Ё' in ENCRYPTION_MAP}")
-print(f"✅ Символ 'ë' в ENCRYPTION_MAP: {'ë' in ENCRYPTION_MAP}")
-print(f"✅ Символ 'Ë' в ENCRYPTION_MAP: {'Ë' in ENCRYPTION_MAP}")
-print(f"📊 Количество символов в таблице: {len(ENCRYPTION_MAP)}")
-
-# --- Мусор между кодовыми словами ---
+# --- Мусор ---
 GARBAGE_MAX_RUN = 2
 GARBAGE_INSERT_CHANCE = 0.45
+INTRA_GARBAGE_MAX = 2
+INTRA_GARBAGE_CHANCE = 0.35
 
 def get_garbage_sequence():
     length = random.randint(1, GARBAGE_MAX_RUN)
     return ''.join(random.choice(NOISE_POOL) for _ in range(length))
 
-def _maybe_garbage(result: list) -> None:
+def _maybe_garbage(result):
     if random.random() < GARBAGE_INSERT_CHANCE:
         result.append(get_garbage_sequence())
 
-# --- Мусор ВНУТРИ кодового слова ---
-INTRA_GARBAGE_MAX = 2
-INTRA_GARBAGE_CHANCE = 0.35
-
-def _maybe_intra_garbage(result: list) -> None:
+def _maybe_intra_garbage(result):
     if random.random() < INTRA_GARBAGE_CHANCE:
         length = random.randint(1, INTRA_GARBAGE_MAX)
         result.append(''.join(random.choice(NOISE_POOL) for _ in range(length)))
 
-# --- Функции шифрования/дешифрования ---
-def normalize_text(text: str) -> str:
-    """Нормализует текст: заменяет похожие латинские буквы на русские"""
-    replacements = {
-        'Ë': 'Ё',  # Латинская E с умлаутом -> русская Ё
-        'ë': 'ё',  # Латинская e с умлаутом -> русская ё
-    }
+# --- Шифрование/дешифрование ---
+def normalize_text(text):
+    replacements = {'Ë': 'Ё', 'ë': 'ё'}
     for old, new in replacements.items():
         text = text.replace(old, new)
     return text
 
-def encrypt_text(text: str) -> str:
-    # Нормализуем текст перед шифрованием
+def encrypt_text(text):
     text = normalize_text(text)
-    
     start_anchor = random.choice(ANCHOR_START_VARIANTS)
     end_anchor = random.choice(ANCHOR_END_VARIANTS)
     result = []
@@ -299,13 +269,11 @@ def encrypt_text(text: str) -> str:
                 if idx < len(codeword) - 1:
                     _maybe_intra_garbage(result)
         else:
-            # Символ не в таблице - пробуем добавить в таблицу на лету
-            print(f"⚠️ Символ '{char}' (U+{ord(char):04X}) не найден в таблице")
             result.append(char)
         _maybe_garbage(result)
     return start_anchor + ''.join(result) + end_anchor
 
-def _try_match_codeword(body: str, i: int, n: int):
+def _try_match_codeword(body, i, n):
     g1 = body[i]
     for gap1 in range(0, INTRA_GARBAGE_MAX + 1):
         pos2 = i + 1 + gap1
@@ -328,7 +296,7 @@ def _try_match_codeword(body: str, i: int, n: int):
                     return match, pos4 + 1
     return None
 
-def decrypt_text(text: str) -> str:
+def decrypt_text(text):
     body = text[3:-3]
     result = []
     i = 0
@@ -347,7 +315,7 @@ def decrypt_text(text: str) -> str:
         i += 1
     return ''.join(result)
 
-def is_encrypted_text(text: str) -> bool:
+def is_encrypted_text(text):
     if len(text) < 6:
         return False
     return text[:3] in ANCHOR_START_VARIANTS and text[-3:] in ANCHOR_END_VARIANTS
@@ -386,7 +354,7 @@ init_data()
 def generate_invite_code():
     return ''.join(random.choices(string.digits, k=6))
 
-def is_invite_valid(code: str) -> bool:
+def is_invite_valid(code):
     if code not in data["invites"]:
         return False
     invite = data["invites"][code]
@@ -397,14 +365,14 @@ def is_invite_valid(code: str) -> bool:
         return False
     return True
 
-def is_session_active(user_id: int) -> bool:
+def is_session_active(user_id):
     user_id_str = str(user_id)
     if user_id_str not in data["users"]:
         return False
     session_end = datetime.fromisoformat(data["users"][user_id_str]["session_end"])
     return datetime.now() < session_end
 
-def create_invite(user_id: int) -> str:
+def create_invite(user_id):
     user_id_str = str(user_id)
     code = generate_invite_code()
     while code in data["invites"]:
@@ -423,7 +391,7 @@ def create_invite(user_id: int) -> str:
     save_data(data)
     return code
 
-# --- Обработчики команд ---
+# --- Обработчики ---
 @dp.message(Command("start"))
 async def start_command(message: Message, state: FSMContext):
     user_id = str(message.from_user.id)
@@ -515,7 +483,7 @@ async def process_invite(message: Message, state: FSMContext):
 @dp.message(InviteStates.waiting_for_new_pin)
 async def process_new_pin(message: Message, state: FSMContext):
     pin = message.text.strip()
-    user_id = str(message.from.user.id)
+    user_id = str(message.from_user.id)
 
     if user_id == str(OWNER_ID):
         await message.answer("👑 Хозяин, вы уже зарегистрированы.")
@@ -576,7 +544,7 @@ async def create_invite_command(message: Message):
 
     if user_id == str(OWNER_ID):
         code = create_invite(int(user_id))
-        await message.answer(f"👑 Хозяин, инвайт-код создан: {code}\nДействует 4 часа.", parse_mode="Markdown")
+        await message.answer(f"👑 Хозяин, инвайт-код создан: {code}\nДействует 4 часа.")
         return
 
     if user_id not in data["users"]:
@@ -592,7 +560,7 @@ async def create_invite_command(message: Message):
         return
 
     code = create_invite(int(user_id))
-    await message.answer(f"✅ Инвайт-код создан: {code}\nДействует 4 часа.", parse_mode="Markdown")
+    await message.answer(f"✅ Инвайт-код создан: {code}\nДействует 4 часа.")
 
 @dp.message()
 async def handle_text(message: Message, state: FSMContext):
@@ -616,7 +584,7 @@ async def handle_text(message: Message, state: FSMContext):
         try:
             decrypted = decrypt_text(text)
             if not decrypted or not decrypted.strip():
-                await message.answer("⚠️ Результат расшифровки пуст. Возможно, сообщение повреждено или не является зашифрованным.")
+                await message.answer("⚠️ Результат расшифровки пуст.")
             else:
                 await message.answer(decrypted)
         except Exception as e:
@@ -639,12 +607,8 @@ async def errors_handler(update, exception):
 async def main():
     print("🤖 Бот запущен!")
     print(f"👑 Хозяин: {OWNER_ID}")
-    print(f"📊 CODEWORD_LENGTH: {CODEWORD_LENGTH}")
-    print(f"📊 VARIANTS_PER_CHAR: {VARIANTS_PER_CHAR}")
-    print(f"📊 Всего кодовых слов в шифре: {len(_used_codewords)}")
-    print(f"📊 Размер шифровальной зоны: {len(CIPHER_POOL)} глифов")
-    print(f"📊 Размер мусорной зоны: {len(NOISE_POOL)} глифов")
-    print(f"👥 Зарегистрировано пользователей: {len(data.get('users', {}))}")
+    print(f"📊 Всего кодовых слов: {len(_used_codewords)}")
+    print(f"👥 Пользователей: {len(data.get('users', {}))}")
     await dp.start_polling(bot)
 
 if __name__ == "__main__":
